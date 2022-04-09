@@ -49,6 +49,44 @@ class King(tk.Label, Piece):
         self.square_colour = square_colour
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
 
+    def move(self, new_rank, new_file):
+        for i in range(8):
+            if   new_rank == self.rank - 1 and new_file == self.file + 1:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank - 1 and new_file == self.file - 1:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+
+            if new_rank == self.rank + 1 and new_file == self.file - 1:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank + 1 and new_file == self.file + 1:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank + 1 and new_file == self.file:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank - 1 and new_file == self.file:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank and new_file == self.file + 1:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank and new_file == self.file - 1:
+                self.file = new_file
+                self.rank = new_rank
+                return True
+        else:
+            return False
+
 class Queen(tk.Label, Piece):
     def __init__(self, parent, team, image, rank, file, square_colour):
         self.parent = parent
@@ -60,6 +98,43 @@ class Queen(tk.Label, Piece):
         self.square_colour = square_colour
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
 
+
+    def move(self, new_rank, new_file):
+        for i in range(8):
+            if   new_rank == self.rank - i and new_file == self.file + i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank - i and new_file == self.file - i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+
+            if new_rank == self.rank + i and new_file == self.file - i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank + i and new_file == self.file + i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank + i and new_file == self.file:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank - i and new_file ==self.file:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank and new_file == self.file + i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank and new_file == self.file - i:
+                self.file = new_file
+                self.rank = new_rank
+                return True
+        return
 class Bishop(tk.Label, Piece):
     def __init__(self, parent, team, image, rank, file, square_colour):
         self.parent = parent
@@ -71,6 +146,28 @@ class Bishop(tk.Label, Piece):
         self.square_colour = square_colour
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
 
+    def move(self, new_rank, new_file):
+        for i in range(8):
+            if   new_rank == self.rank - i and new_file == self.file + i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank - i and new_file == self.file - i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+
+            if new_rank == self.rank + i and new_file == self.file - i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank + i and new_file == self.file + i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+        return False
+
+
 class Rook(tk.Label, Piece):
     def __init__(self, parent, team, image, rank, file, square_colour):
         self.parent = parent
@@ -81,6 +178,26 @@ class Rook(tk.Label, Piece):
         self.file = file
         self.square_colour = square_colour
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
+    def move(self, new_rank, new_file):
+        for i in range(8):
+            if new_rank == self.rank + i and new_file == self.file:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank - i and new_file ==self.file:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank and new_file == self.file + i:
+                self.rank = new_rank
+                self.file = new_file
+                return True
+            if new_rank == self.rank and new_file == self.file - i:
+                self.file = new_file
+                self.rank = new_rank
+                return True
+        return False
+
 
 class Knight(tk.Label, Piece):
     def __init__(self, parent, team, image, rank, file, square_colour):
@@ -92,6 +209,44 @@ class Knight(tk.Label, Piece):
         self.file = file
         self.square_colour = square_colour
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
+
+    def move(self, new_rank,new_file):
+
+        if new_rank == self.rank - 2 and new_file == self.file + 1:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+        if new_rank == self.rank - 2 and new_file == self.file - 1:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+        if new_rank == self.rank + 2 and new_file == self.file + 1:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+        if new_rank == self.rank + 2 and new_file == self.file - 1:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+
+        if new_rank == self.rank - 1 and new_file == self.file + 2:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+        if new_rank == self.rank - 1 and new_file == self.file - 2:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+        if new_rank == self.rank + 1 and new_file == self.file + 2:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+        if new_rank == self.rank + 1 and new_file == self.file - 2:
+            self.rank = new_rank
+            self.file = new_file
+            return True
+
+        return False
 
 class Pawn(tk.Label, Piece):
     def __init__(self, parent, team, image, rank, file, square_colour):
@@ -108,6 +263,15 @@ class Pawn(tk.Label, Piece):
         """self.rank = new_rank
         self.file = new_file
         return True"""
+
+        if  self.team is Team.WHITE and new_rank == self.rank-1 and new_file == self.file:
+            self.rank = new_rank
+            return True
+        elif self.team is Team.BLACK and new_rank==self.rank+1 and new_file==self.file:
+            self.rank = new_rank
+            return True
+        else:
+            return False
 
 
 
@@ -167,6 +331,27 @@ class Chess:
         for file, _ in enumerate(black_pawn_rank):
             self.create_piece(1, file, Pawn, Team.BLACK)
 
+        self.create_piece(Chess.RANKS-1, chess.FILES-1, Rook, Team.WHITE)
+        self.create_piece(Chess.RANKS-1, 0, Rook, Team.WHITE)
+        self.create_piece(0,chess.FILES-1, Rook, Team.BLACK)
+        self.create_piece(0,0, Rook, Team.BLACK)
+
+        self.create_piece(Chess.RANKS-1, chess.FILES-2, Knight, Team.WHITE)
+        self.create_piece(Chess.RANKS-1, 1, Knight, Team.WHITE)
+        self.create_piece(0, chess.FILES-2, Knight, Team.BLACK)
+        self.create_piece(0, 1, Knight, Team.BLACK)
+
+        self.create_piece(Chess.RANKS-1,chess.FILES-3, Bishop, Team.WHITE)
+        self.create_piece(Chess.RANKS-1, 2, Bishop, Team.WHITE)
+        self.create_piece(0, chess.FILES-3, Bishop, Team.BLACK)
+        self.create_piece(0, 2, Bishop, Team.BLACK)
+
+        self.create_piece(Chess.RANKS-1, chess.FILES-4, King, Team.WHITE)
+        self.create_piece(0, chess.FILES-4, King, Team.BLACK)
+
+        self.create_piece (Chess.RANKS-1, chess.FILES-5, Queen, Team.WHITE)
+        self.create_piece (0, chess.FILES-5, Queen, Team.BLACK )
+
     def square_click_handler(self, event):
         if self.selected_piece_pos is None:
             return
@@ -197,7 +382,7 @@ if __name__ == '__main__':
     chess_frame.grid_propagate(False)
     chess = Chess(chess_frame)
     chess.set_up_board()
-    # chess.create_classic_setup()
-    chess.create_piece(rank=3, file=2, piece_cls=Pawn, team=Team.WHITE)
+    chess.create_classic_setup()
+    #chess.create_piece(rank=3, file=2, piece_cls=Knight, team=Team.WHITE)
     chess_frame.grid(row=0, column=0)
     root.mainloop()
