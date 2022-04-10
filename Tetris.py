@@ -3,8 +3,6 @@ import tkinter as tk
 from enum import Enum, auto
 from PIL import Image, ImageTk
 
-PLACEHOLDER_IMG_WHITE = Image.new('RGBA', (32, 32), '#ffffff')
-
 def flatten(matrix):
     return [item for row in matrix for item in row]
 
