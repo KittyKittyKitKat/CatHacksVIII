@@ -295,12 +295,13 @@ class Tetris:
 
     def tetromino_fall(self):
         if self.falling_tetromino is None:
-            return
+            return False
         fell = self.falling_tetromino.move_down()
         if not fell:
             self.falling_tetromino.set_status(SquareStatus.PLACED)
             self.falling_tetromino = None
-            self.clear_lines()
+            return self.clear_lines()
+        return False
 
     def tetromino_left(self):
         if self.falling_tetromino is None:
@@ -330,7 +331,7 @@ class Tetris:
             else:
                 lines_to_clear.append(row)
         if not lines_to_clear:
-            return
+            return False
         for row in lines_to_clear:
             for col in range(Tetris.COLUMNS):
                 square = self.parent.grid_slaves(row=row, column=col)[0]
@@ -341,6 +342,7 @@ class Tetris:
                     square = self.parent.grid_slaves(row=row, column=col)[0]
                     if isinstance(square, TetrominoSquare):
                         square.redraw(row + 1, col)
+        return True
 
 
 if __name__ == '__main__':

@@ -417,6 +417,8 @@ class Chess:
         self.pieces = []
         self.current_player = Team.WHITE
         self.selected_piece_pos = None
+        self.locked = False
+        self.move_made = None
 
     def set_up_board(self):
         for rank in range(self.RANKS):
@@ -459,29 +461,29 @@ class Chess:
         for file, _ in enumerate(black_pawn_rank):
             self.create_piece(1, file, Pawn, Team.BLACK)
 
-        self.create_piece(Chess.RANKS-1, chess.FILES-1, Rook, Team.WHITE)
+        self.create_piece(Chess.RANKS-1, Chess.FILES-1, Rook, Team.WHITE)
         self.create_piece(Chess.RANKS-1, 0, Rook, Team.WHITE)
-        self.create_piece(0,chess.FILES-1, Rook, Team.BLACK)
+        self.create_piece(0,Chess.FILES-1, Rook, Team.BLACK)
         self.create_piece(0,0, Rook, Team.BLACK)
 
-        self.create_piece(Chess.RANKS-1, chess.FILES-2, Knight, Team.WHITE)
+        self.create_piece(Chess.RANKS-1, Chess.FILES-2, Knight, Team.WHITE)
         self.create_piece(Chess.RANKS-1, 1, Knight, Team.WHITE)
-        self.create_piece(0, chess.FILES-2, Knight, Team.BLACK)
+        self.create_piece(0, Chess.FILES-2, Knight, Team.BLACK)
         self.create_piece(0, 1, Knight, Team.BLACK)
 
-        self.create_piece(Chess.RANKS-1,chess.FILES-3, Bishop, Team.WHITE)
+        self.create_piece(Chess.RANKS-1,Chess.FILES-3, Bishop, Team.WHITE)
         self.create_piece(Chess.RANKS-1, 2, Bishop, Team.WHITE)
-        self.create_piece(0, chess.FILES-3, Bishop, Team.BLACK)
+        self.create_piece(0, Chess.FILES-3, Bishop, Team.BLACK)
         self.create_piece(0, 2, Bishop, Team.BLACK)
 
-        self.create_piece(Chess.RANKS-1, chess.FILES-4, King, Team.WHITE)
-        self.create_piece(0, chess.FILES-4, King, Team.BLACK)
+        self.create_piece(Chess.RANKS-1, Chess.FILES-4, King, Team.WHITE)
+        self.create_piece(0, Chess.FILES-4, King, Team.BLACK)
 
-        self.create_piece (Chess.RANKS-1, chess.FILES-5, Queen, Team.WHITE)
-        self.create_piece (0, chess.FILES-5, Queen, Team.BLACK )
+        self.create_piece (Chess.RANKS-1, Chess.FILES-5, Queen, Team.WHITE)
+        self.create_piece (0, Chess.FILES-5, Queen, Team.BLACK )
 
     def square_click_handler(self, event):
-        if self.selected_piece_pos is None:
+        if self.selected_piece_pos is None or self.locked:
             return
         x = event.x_root - self.parent.winfo_rootx()
         y = event.y_root - self.parent.winfo_rooty()
@@ -490,6 +492,8 @@ class Chess:
         self.move_piece(rank, file)
 
     def piece_click_handler(self, position):
+        if self.locked:
+            return
         if self.selected_piece_pos is None:
             self.selected_piece_pos = position
         else:
@@ -499,8 +503,12 @@ class Chess:
                 self.move_piece(*position)
 
     def move_piece(self, new_rank, new_file):
+        self.move_made = None
         piece = self.get_piece_at_pos(*self.selected_piece_pos)
         if piece is None:
+            return
+        if piece.team is not self.current_player:
+            self.selected_piece_pos = None
             return
         square_colour = self.squares[new_rank][new_file].cget('bg')
         can_move = piece.check_move(new_rank, new_file)
@@ -512,7 +520,15 @@ class Chess:
             piece.has_moved = True
             if captured_piece is not None:
                 captured_piece.capture()
-            self.is_checked()
+
+            self.current_player = Team.WHITE if self.current_player is Team.BLACK else Team.BLACK
+            check = self.is_checked()
+            if not check:
+                self.move_made = 'Success'
+            else:
+                self.move_made = 'Check'
+
+
 
     def is_checked(self):
         pieces_that_can_check = [piece for piece in self.pieces if piece.team is self.current_player and not piece.is_captured]
