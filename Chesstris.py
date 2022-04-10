@@ -100,12 +100,14 @@ if __name__ == '__main__':
                     chesstris.chess.locked = True
                     chesstris.chess.move_made = None
                     chesstris.unlock_tetris()
-            if game_time == 30:
+            if game_time == 25:
                 game_time = 0
                 if chesstris.run_tetris:
                     chesstris.spawn_tetris_pieces()
                     p1_line_cleared = chesstris.p1tetris.tetromino_fall()
                     p2_line_cleared = chesstris.p2tetris.tetromino_fall()
+                    if chesstris.p1tetris.has_lost or chesstris.p2tetris.has_lost:
+                        break
                     if p1_line_cleared:
                         chesstris.player_chess_move = Team.WHITE
                         chesstris.lock_tetris()
