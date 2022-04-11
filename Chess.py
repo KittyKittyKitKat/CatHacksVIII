@@ -1,17 +1,20 @@
 import tkinter as tk
 from enum import Enum, auto
 from PIL import Image, ImageTk
+
 class Team(Enum):
     WHITE = auto()
     BLACK = auto()
 
+
 class PieceImage(Enum):
-    KING = Image.open('king_white.png'), Image.open('king_black.png')
-    QUEEN = Image.open('queen_white.png'), Image.open('queen_black.png')
-    ROOK = Image.open('rook_white.png'), Image.open('rook_black.png')
-    BISHOP = Image.open('bishop_white.png'), Image.open('bishop_black.png')
-    KNIGHT = Image.open('knight_white.png'), Image.open('knight_black.png')
-    PAWN = Image.open('pawn_white.png'), Image.open('pawn_black.png')
+    KING = Image.open('assets/king_white.png'), Image.open('assets/king_black.png')
+    QUEEN = Image.open('assets/queen_white.png'), Image.open('assets/queen_black.png')
+    ROOK = Image.open('assets/rook_white.png'), Image.open('assets/rook_black.png')
+    BISHOP = Image.open('assets/bishop_white.png'), Image.open('assets/bishop_black.png')
+    KNIGHT = Image.open('assets/knight_white.png'), Image.open('assets/knight_black.png')
+    PAWN = Image.open('assets/pawn_white.png'), Image.open('assets/pawn_black.png')
+
 
 class Piece(tk.Label):
     def __init__(self, parent, team, image, rank, file, square_colour, chess_board):
@@ -27,9 +30,13 @@ class Piece(tk.Label):
         self.is_captured = False
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
 
+    def check_move(self, new_rank, new_file):
+        return True
+
     def move(self, new_rank, new_file):
         self.rank = new_rank
         self.file = new_file
+        self.has_moved = True
         self.redraw()
 
     def update_square_colour(self, new_square_colour):
@@ -49,6 +56,7 @@ class Piece(tk.Label):
 
     def __str__(self):
         return self.team.name +" " + self.__class__.__name__
+
 
 class King(Piece):
     def check_move(self, new_rank, new_file):
@@ -142,6 +150,7 @@ class King(Piece):
                         return True
                     elif self.chess_board.get_piece_at_pos(test_rank, self.file) is not None:
                         return False
+
 
 class Queen(Piece):
     def check_move(self, new_rank, new_file):
@@ -240,6 +249,7 @@ class Queen(Piece):
                     elif self.chess_board.get_piece_at_pos(test_rank, self.file) is not None:
                         return False
 
+
 class Bishop(Piece):
     def check_move(self, new_rank, new_file):
         if new_rank == self.rank and new_file == self.file:
@@ -296,6 +306,7 @@ class Bishop(Piece):
                     elif self.chess_board.get_piece_at_pos(test_rank, test_file) is not None:
                         return False
 
+
 class Rook(Piece):
     def check_move(self, new_rank, new_file):
         if new_rank == self.rank and new_file == self.file:
@@ -344,6 +355,7 @@ class Rook(Piece):
                     elif self.chess_board.get_piece_at_pos(test_rank, self.file) is not None:
                         return False
 
+
 class Knight(Piece):
     def check_move(self, new_rank,new_file):
         occupying_piece = self.chess_board.get_piece_at_pos(new_rank, new_file)
@@ -380,24 +392,31 @@ class Knight(Piece):
                 return False
             return True
 
+
 class Pawn(Piece):
     def check_move(self, new_rank, new_file):
-        if self.team is Team.WHITE and new_rank == self.rank-1 and new_file == self.file:
-            if self.chess_board.get_piece_at_pos(self.rank-1, self.file) is not None:
-                return False
-            return True
-        if not self.has_moved and self.team is Team.WHITE and new_rank == self.rank-2 and new_file == self.file:
-            if self.chess_board.get_piece_at_pos(self.rank-2, self.file) is not None:
-                return False
-            return True
-        if self.team is Team.BLACK and new_rank==self.rank+1 and new_file==self.file:
-            if self.chess_board.get_piece_at_pos(self.rank+1, self.file) is not None:
-                return False
-            return True
-        if not self.has_moved and self.team is Team.BLACK and new_rank == self.rank+2 and new_file == self.file:
-            if self.chess_board.get_piece_at_pos(self.rank+2, self.file) is not None:
-                return False
-            return True
+        if new_rank == self.rank and new_file == self.file:
+            return False
+        for dr in range(-2, 3):
+            for df in range(-1, 2):
+                if abs(dr) != 1 and abs(df) == 1:
+                    continue
+                if dr > 0 and self.team is not Team.BLACK:
+                    continue
+                if dr < 0 and self.team is not Team.WHITE:
+                    continue
+                if abs(dr) == 2 and self.has_moved:
+                    continue
+                test_rank = self.rank + dr
+                test_file = self.file + df
+                if test_rank == new_rank and test_file == new_file:
+                    if abs(dr) ==1 and abs(df) == 1:
+                        if self.chess_board.get_piece_at_pos(test_rank, test_file) is None:
+                            return False
+                    return True
+
+        return False
+
 
 class Chess:
     RANKS = 8
@@ -405,6 +424,8 @@ class Chess:
     SQUARE_SIZE = 64
     LIGHT_COLOUR = '#f0ab51'
     DARK_COLOUR = '#613d0e'
+    HIGHLIGHT_LIGHT_COLOUR = '#56f051'
+    HIGHLIGHT_DARK_COLOUR = '#0b8017'
 
     def __init__(self, parent):
         self.square_img = ImageTk.PhotoImage(Image.new('RGBA', (Chess.SQUARE_SIZE, Chess.SQUARE_SIZE), (255, 0, 0, 0)))
@@ -426,13 +447,23 @@ class Chess:
         for file in range(self.FILES):
             self.parent.grid_columnconfigure(file, minsize=Chess.SQUARE_SIZE)
         for rank in range(self.RANKS):
-            light = not (rank % 2)
             for file in range(self.FILES):
                 square = self.squares[rank][file]
-                square.config(bg=Chess.LIGHT_COLOUR if light else Chess.DARK_COLOUR)
                 square.bind('<Button-1>', self.square_click_handler)
                 square.grid(row=rank, column=file)
+        self.reset_board_colouring()
+
+    def reset_board_colouring(self):
+        for rank in range(self.RANKS):
+            light = not (rank % 2)
+            for file in range(self.FILES):
+                colour = Chess.LIGHT_COLOUR if light else Chess.DARK_COLOUR
+                square = self.squares[rank][file]
+                square.config(bg=colour)
                 light = not light
+                piece = self.get_piece_at_pos(rank, file)
+                if piece is not None:
+                    piece.update_square_colour(colour)
 
     def create_piece(self, rank, file, piece_cls, team):
         images = PieceImage[piece_cls.__name__.upper()].value
@@ -444,10 +475,9 @@ class Chess:
         self.pieces.append(piece)
 
     def get_piece_at_pos(self, rank, file):
-        objs = self.parent.grid_slaves(row=rank, column=file)
-        for obj in objs:
-            if isinstance(obj, Piece):
-                return obj
+        for piece in self.pieces:
+            if piece.rank == rank and piece.file == file:
+                return piece
         return None
 
     def is_valid_coordinate(self, rank, file):
@@ -494,13 +524,19 @@ class Chess:
     def piece_click_handler(self, position):
         if self.locked:
             return
+        self.reset_board_colouring()
         if self.selected_piece_pos is None:
+            if (piece := self.get_piece_at_pos(*position)) is not None and piece.team is not self.current_player:
+                return
             self.selected_piece_pos = position
+            self.highlight_available_moves()
+        elif self.selected_piece_pos == position:
+            self.selected_piece_pos = None
+        elif self.get_piece_at_pos(*self.selected_piece_pos).team is self.get_piece_at_pos(*position).team:
+            self.selected_piece_pos = position
+            self.highlight_available_moves()
         else:
-            if self.get_piece_at_pos(*self.selected_piece_pos).team is self.get_piece_at_pos(*position).team:
-                self.selected_piece_pos = position
-            else:
-                self.move_piece(*position)
+            self.move_piece(*position)
 
     def move_piece(self, new_rank, new_file):
         self.move_made = None
@@ -510,17 +546,16 @@ class Chess:
         if piece.team is not self.current_player:
             self.selected_piece_pos = None
             return
-        square_colour = self.squares[new_rank][new_file].cget('bg')
         can_move = piece.check_move(new_rank, new_file)
         if can_move:
+            self.reset_board_colouring()
             captured_piece = self.get_piece_at_pos(new_rank, new_file)
+            square_colour = self.squares[new_rank][new_file].cget('bg')
             piece.update_square_colour(square_colour)
             piece.move(new_rank, new_file)
             self.selected_piece_pos = None
-            piece.has_moved = True
             if captured_piece is not None:
                 captured_piece.capture()
-
             self.current_player = Team.WHITE if self.current_player is Team.BLACK else Team.BLACK
             check = self.is_checked()
             if not check:
@@ -528,23 +563,47 @@ class Chess:
             else:
                 self.move_made = 'Check'
 
-
+    def highlight_available_moves(self):
+        if self.selected_piece_pos is None:
+            return
+        piece_clicked = self.get_piece_at_pos(*self.selected_piece_pos)
+        if piece_clicked.team is not self.current_player:
+            return
+        for r in range(Chess.RANKS):
+            for f in range(Chess.FILES):
+                if piece_clicked.check_move(r, f):
+                    square = self.squares[r][f]
+                    if square.cget('bg') == Chess.LIGHT_COLOUR:
+                        square.config(bg=Chess.HIGHLIGHT_LIGHT_COLOUR)
+                    if square.cget('bg') == Chess.DARK_COLOUR:
+                        square.config(bg=Chess.HIGHLIGHT_DARK_COLOUR)
+                    piece = self.get_piece_at_pos(r, f)
+                    if piece is not None:
+                        if piece.square_colour == Chess.LIGHT_COLOUR:
+                            piece.update_square_colour(Chess.HIGHLIGHT_LIGHT_COLOUR)
+                        if piece.square_colour == Chess.DARK_COLOUR:
+                            piece.update_square_colour(Chess.HIGHLIGHT_DARK_COLOUR)
 
     def is_checked(self):
         pieces_that_can_check = [piece for piece in self.pieces if piece.team is self.current_player and not piece.is_captured]
-        king_that_can_be_checked = [piece for piece in self.pieces if piece.team is not self.current_player and isinstance(piece, King)][0]
+        king_that_can_be_checked = [piece for piece in self.pieces if piece.team is not self.current_player and isinstance(piece, King)]
+        if not king_that_can_be_checked:
+            return False
+        king = king_that_can_be_checked[0]
         for piece in pieces_that_can_check:
-            if piece.check_move(king_that_can_be_checked.rank, king_that_can_be_checked.file):
-                # print('in check')
+            if piece.check_move(king.rank, king.file):
+                print('in check')
                 return True
         return False
 
     def is_checkmate(self):
         ...
 
+
 if __name__ == '__main__':
     root = tk.Tk()
     root.resizable(0, 0)
+    root.title('Chess')
     chess_frame = tk.Frame(root, height=Chess.SQUARE_SIZE*Chess.RANKS, width=Chess.SQUARE_SIZE*Chess.FILES)
     chess_frame.grid_propagate(False)
     chess = Chess(chess_frame)
