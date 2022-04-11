@@ -16,13 +16,13 @@ def reverse_columns(matrix):
     return [row[::-1] for row in matrix]
 
 class TetrominoColour(Enum):
-    I = Image.open('cyan.png')
-    J = Image.open('blue.png')
-    L = Image.open('orange.png')
-    O = Image.open('yellow.png')
-    T = Image.open('purple.png')
-    S = Image.open('green.png')
-    Z = Image.open('red.png')
+    I = Image.open('assets/cyan.png')
+    J = Image.open('assets/blue.png')
+    L = Image.open('assets/orange.png')
+    O = Image.open('assets/yellow.png')
+    T = Image.open('assets/purple.png')
+    S = Image.open('assets/green.png')
+    Z = Image.open('assets/red.png')
 
 class TetrominoType(Enum):
     I = [[0, 0, 0, 0],
