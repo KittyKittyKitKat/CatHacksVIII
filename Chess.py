@@ -27,7 +27,8 @@ class Piece(tk.Label):
         self.square_colour = square_colour
         self.chess_board = chess_board
         self.has_moved = False
-        self.is_captured = False
+        self.in_future = False
+        self.stored_pos = None
         super().__init__(parent, bd=0, width=Chess.SQUARE_SIZE, height=Chess.SQUARE_SIZE, bg=square_colour, image=self.tk_image)
 
     def check_move(self, new_rank, new_file):
@@ -39,6 +40,22 @@ class Piece(tk.Label):
         self.has_moved = True
         self.grid_forget()
         self.grid(row=self.rank, column=self.file)
+
+    def move_results_in_check(self, test_rank, test_file):
+        king = self.get_team_king()
+        if king is None:
+            return
+        self.stored_pos = self.rank, self.file
+        self.rank = test_rank
+        self.file = test_file
+        self.in_future = True
+        would_be_check = False
+        if king.is_checked():
+            would_be_check = True
+        self.rank, self.file = self.stored_pos
+        self.in_future = False
+        self.stored_pos = None
+        return would_be_check
 
     def get_direction_to_check(self, d_rank, d_file):
         if d_rank < 0 and d_file < 0:
@@ -66,11 +83,16 @@ class Piece(tk.Label):
         return (self.rank, self.file)
 
     def capture(self):
-        self.is_captured = True
         self.destroy()
 
+    def get_team_king(self):
+        for piece in self.chess_board.pieces:
+            if isinstance(piece, King) and piece.team is self.team:
+                return piece
+        return None
+
     def __str__(self):
-        return self.team.name +" " + self.__class__.__name__
+        return f'{self.team.name.title()} {self.__class__.__name__} at ({self.rank}, {self.file})'
 
 
 class King(Piece):
@@ -82,6 +104,8 @@ class King(Piece):
         test_rank = self.rank + dr
         test_file = self.file + df
         if new_rank == test_rank and new_file == test_file:
+            if self.in_check_at_square(test_rank, test_file):
+                return False
             if occupying_piece is not None and occupying_piece.team is self.team:
                 return False
             return True
@@ -89,18 +113,35 @@ class King(Piece):
             return False
         return False
 
+    def in_check_at_square(self, test_rank, test_file):
+        pieces_that_could_check = [piece for piece in self.chess_board.pieces if piece.team is not self.team]
+        for piece in pieces_that_could_check:
+            if piece.check_move(test_rank, test_file):
+                return True
+        return False
+
+    def is_checked(self):
+        checked = self.in_check_at_square(self.rank, self.file)
+        return checked
+
 
 class Queen(Piece):
     def check_move(self, new_rank, new_file):
-        if new_rank == self.rank and new_file == self.file:
+        if self.in_future:
+            test_against_rank, test_against_file = self.stored_pos
+        else:
+            test_against_rank, test_against_file = self.rank, self.file
+        if new_rank == test_against_rank and new_file == test_against_file:
             return False
-        dr, df = self.get_direction_to_check(new_rank - self.rank, new_file - self.file)
+        dr, df = self.get_direction_to_check(new_rank - test_against_rank, new_file - test_against_file)
         occupying_piece = self.chess_board.get_piece_at_pos(new_rank, new_file)
         for i in range(1, 8):
-            test_rank = self.rank + i * dr
-            test_file = self.file + i * df
+            test_rank = test_against_rank + i * dr
+            test_file = test_against_file + i * df
             if new_rank == test_rank and new_file == test_file:
                 if occupying_piece is not None and occupying_piece.team is self.team:
+                    return False
+                if self.move_results_in_check(test_rank, test_file):
                     return False
                 return True
             elif self.chess_board.get_piece_at_pos(test_rank, test_file) is not None:
@@ -110,17 +151,23 @@ class Queen(Piece):
 
 class Bishop(Piece):
     def check_move(self, new_rank, new_file):
-        if new_rank == self.rank and new_file == self.file:
+        if self.in_future:
+            test_against_rank, test_against_file = self.stored_pos
+        else:
+            test_against_rank, test_against_file = self.rank, self.file
+        if new_rank == test_against_rank and new_file == test_against_file:
             return False
-        dr, df = self.get_direction_to_check(new_rank - self.rank, new_file - self.file)
+        dr, df = self.get_direction_to_check(new_rank - test_against_rank, new_file - test_against_file)
         occupying_piece = self.chess_board.get_piece_at_pos(new_rank, new_file)
         if abs(dr) != abs(df):
             return False
         for i in range(1, 8):
-            test_rank = self.rank + i * dr
-            test_file = self.file + i * df
+            test_rank = test_against_rank + i * dr
+            test_file = test_against_file + i * df
             if new_rank == test_rank and new_file == test_file:
                 if occupying_piece is not None and occupying_piece.team is self.team:
+                    return False
+                if self.move_results_in_check(test_rank, test_file):
                     return False
                 return True
             elif self.chess_board.get_piece_at_pos(test_rank, test_file) is not None:
@@ -130,17 +177,23 @@ class Bishop(Piece):
 
 class Rook(Piece):
     def check_move(self, new_rank, new_file):
-        if new_rank == self.rank and new_file == self.file:
+        if self.in_future:
+            test_against_rank, test_against_file = self.stored_pos
+        else:
+            test_against_rank, test_against_file = self.rank, self.file
+        if new_rank == test_against_rank and new_file == test_against_file:
             return False
-        dr, df = self.get_direction_to_check(new_rank - self.rank, new_file - self.file)
+        dr, df = self.get_direction_to_check(new_rank - test_against_rank, new_file - test_against_file)
         occupying_piece = self.chess_board.get_piece_at_pos(new_rank, new_file)
         if dr != 0 and df != 0:
             return False
         for i in range(1, 8):
-            test_rank = self.rank + i * dr
-            test_file = self.file + i * df
+            test_rank = test_against_rank + i * dr
+            test_file = test_against_file + i * df
             if new_rank == test_rank and new_file == test_file:
                 if occupying_piece is not None and occupying_piece.team is self.team:
+                    return False
+                if self.move_results_in_check(test_rank, test_file):
                     return False
                 return True
             elif self.chess_board.get_piece_at_pos(test_rank, test_file) is not None:
@@ -150,6 +203,12 @@ class Rook(Piece):
 
 class Knight(Piece):
     def check_move(self, new_rank,new_file):
+        if self.in_future:
+            test_against_rank, test_against_file = self.stored_pos
+        else:
+            test_against_rank, test_against_file = self.rank, self.file
+        if new_rank == test_against_rank and new_file == test_against_file:
+            return False
         occupying_piece = self.chess_board.get_piece_at_pos(new_rank, new_file)
         for dr in range(-2, 3):
             for df in range(-2, 3):
@@ -157,39 +216,59 @@ class Knight(Piece):
                     continue
                 if dr == 0 or df == 0:
                     continue
-                test_rank = self.rank + dr
-                test_file = self.file + df
+                test_rank = test_against_rank + dr
+                test_file = test_against_file + df
                 if new_rank == test_rank and new_file == test_file:
                     if occupying_piece is not None and occupying_piece.team is self.team:
+                        return False
+                    if self.move_results_in_check(test_rank, test_file):
                         return False
                     return True
         return False
 
 
 class Pawn(Piece):
+    def __init__(self, parent, team, image, rank, file, square_colour, chess_board):
+        super(). __init__(parent, team, image, rank, file, square_colour, chess_board)
+        self.has_just_moved_double = False
+
     def check_move(self, new_rank, new_file):
-        if new_rank == self.rank and new_file == self.file:
+        if self.in_future:
+            test_against_rank, test_against_file = self.stored_pos
+        else:
+            test_against_rank, test_against_file = self.rank, self.file
+        if new_rank == test_against_rank and new_file == test_against_file:
             return False
-        dr, df = self.get_direction_to_check(new_rank - self.rank, new_file - self.file)
+        dr, df = self.get_direction_to_check(new_rank - test_against_rank, new_file - test_against_file)
         if (dr > 0 and self.team is Team.WHITE) or (dr < 0 and self.team is Team.BLACK):
             return False
         occupying_piece = self.chess_board.get_piece_at_pos(new_rank, new_file)
         if df == 0:
             for i in range(1, 3 if not self.has_moved else 2):
-                test_rank = self.rank + i * dr
-                test_file = self.file + i * df
+                test_rank = test_against_rank + i * dr
+                test_file = test_against_file + i * df
                 if new_rank == test_rank and new_file == test_file:
                     if occupying_piece is not None:
+                        return False
+                    self.has_just_moved_double = i == 2
+                    if self.move_results_in_check(test_rank, test_file):
                         return False
                     return True
                 elif self.chess_board.get_piece_at_pos(test_rank, test_file) is not None:
                     return False
         elif abs(dr) == 1:
-            test_rank = self.rank + dr
-            test_file = self.file + df
+            test_rank = test_against_rank + dr
+            test_file = test_against_file + df
             if test_rank == new_rank and test_file == new_file:
                 if occupying_piece is not None and occupying_piece.team is not self.team:
                     return True
+                elif self.move_results_in_check(test_rank, test_file):
+                    return False
+                elif occupying_piece is None:
+                    en_passant_pawn = self.chess_board.get_piece_at_pos(test_against_rank, test_file)
+                    if isinstance(en_passant_pawn, Pawn) and en_passant_pawn.has_just_moved_double and en_passant_pawn.team is not self.team:
+                        self.chess_board.pawn_captured_en_passant = en_passant_pawn
+                        return True
         return False
 
 
@@ -214,6 +293,7 @@ class Chess:
         self.current_player = Team.WHITE
         self.selected_piece_pos = None
         self.locked = False
+        self.pawn_captured_en_passant = None
 
     def set_up_board(self):
         for rank in range(self.RANKS):
@@ -282,7 +362,7 @@ class Chess:
         self.create_piece(0, Chess.FILES-4, King, Team.BLACK)
 
         self.create_piece (Chess.RANKS-1, Chess.FILES-5, Queen, Team.WHITE)
-        self.create_piece (0, Chess.FILES-5, Queen, Team.BLACK )
+        self.create_piece (0, Chess.FILES-5, Queen, Team.BLACK)
 
     def square_click_handler(self, event):
         if self.selected_piece_pos is None or self.locked:
@@ -329,6 +409,9 @@ class Chess:
             return
         if can_move:
             self.reset_board_colouring()
+            for pawn in [piece for piece in self.pieces if isinstance(piece, Pawn)]:
+                if pawn is not piece_to_move:
+                    pawn.has_just_moved_double = False
             captured_piece = self.get_piece_at_pos(new_rank, new_file)
             square_colour = self.squares[new_rank][new_file].cget('bg')
             piece_to_move.update_square_colour(square_colour)
@@ -337,6 +420,10 @@ class Chess:
             if captured_piece is not None:
                 captured_piece.capture()
                 self.pieces.remove(captured_piece)
+            if self.pawn_captured_en_passant is not None:
+                self.pawn_captured_en_passant.capture()
+                self.pieces.remove(self.pawn_captured_en_passant)
+                self.pawn_captured_en_passant = None
             self.change_player()
 
     def highlight_available_moves(self):
@@ -364,21 +451,6 @@ class Chess:
                         if piece.square_colour == Chess.DARK_COLOUR:
                             piece.update_square_colour(Chess.HIGHLIGHT_DARK_COLOUR)
 
-    def is_checked(self):
-        pieces_that_can_check = [piece for piece in self.pieces if piece.team is self.current_player and not piece.is_captured]
-        king_that_can_be_checked = [piece for piece in self.pieces if piece.team is not self.current_player and isinstance(piece, King)]
-        if not king_that_can_be_checked:
-            return False
-        king = king_that_can_be_checked[0]
-        for piece in pieces_that_can_check:
-            if piece.check_move(king.rank, king.file):
-                print('in check')
-                return True
-        return False
-
-    def is_checkmate(self):
-        ...
-
 
 if __name__ == '__main__':
     root = tk.Tk()
@@ -389,5 +461,6 @@ if __name__ == '__main__':
     chess = Chess(chess_frame)
     chess.set_up_board()
     chess.create_classic_setup()
+    root.bind("<Return>", lambda *_: chess.change_player())
     chess_frame.grid(row=0, column=0)
     root.mainloop()
