@@ -71,6 +71,8 @@ class Piece(tk.Label):
         return would_be_check
 
     def square_is_valid_move(self, test_rank, test_file, occupying_piece):
+        if isinstance(occupying_piece, King):
+            return False
         would_be_check = self.move_results_in_check(test_rank, test_file)
         if occupying_piece is not None:
             if occupying_piece.team is self.team:
@@ -142,11 +144,18 @@ class King(Piece):
         pieces_that_could_check = [piece for piece in self.chess_board.pieces if piece.team is not self.team]
         self.premove(-1, -1)
         in_check = False
+        pieces_premoved = []
         for piece in pieces_that_could_check:
+            piece_at = self.chess_board.get_piece_at_pos(test_rank, test_file)
+            if piece_at is not None and piece_at.team is piece.team:
+                piece_at.premove(-1, -1)
+                pieces_premoved.append(piece_at)
             if piece.check_move(test_rank, test_file):
                 in_check = True
                 break
         self.undo_premove()
+        for piece in pieces_premoved:
+            piece.undo_premove()
         return in_check
 
     def is_checked(self):
