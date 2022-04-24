@@ -159,7 +159,7 @@ class King(Piece):
                 if occupying_piece is not None and occupying_piece.team is self.team:
                     return False
                 if i == 2:
-                    self.chess_board.castling_rook
+                    self.chess_board.castling_rook = None
                     for rook in team_rooks:
                         if not rook.has_moved:
                             if rook.file < self.file and df == -1:
@@ -325,6 +325,8 @@ class Pawn(Piece):
                     if isinstance(en_passant_pawn, Pawn) and en_passant_pawn.has_just_moved_double and en_passant_pawn.team is not self.team:
                         self.chess_board.pawn_captured_en_passant = en_passant_pawn
                         return True
+                    else:
+                        self.chess_board.pawn_captured_en_passant = None
         return False
 
 
@@ -351,6 +353,7 @@ class Chess:
         self.locked = False
         self.pawn_captured_en_passant = None
         self.castling_rook = None
+        self.game_state = GameState.PLAYING
 
     def set_up_board(self):
         for rank in range(self.RANKS):
@@ -482,7 +485,7 @@ class Chess:
             if captured_piece is not None:
                 captured_piece.capture()
                 self.pieces.remove(captured_piece)
-            if self.pawn_captured_en_passant is not None:
+            if isinstance(piece_to_move, Pawn) and self.pawn_captured_en_passant is not None:
                 self.pawn_captured_en_passant.capture()
                 self.pieces.remove(self.pawn_captured_en_passant)
                 self.pawn_captured_en_passant = None
