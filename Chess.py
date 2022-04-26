@@ -181,13 +181,18 @@ class King(Piece):
         self.premove(-1, -1)
         in_check = False
         pieces_that_could_check = [piece for piece in self.chess_board.pieces if piece.team is not self.team]
+        piece_at = self.chess_board.get_piece_at_pos(test_rank, test_file)
         for piece in pieces_that_could_check:
+            if piece_at is not None:
+                piece_at.premove(-1, -1)
             if isinstance(piece, King):
                 if piece.check_move(test_rank, test_file, check_check=False):
                     in_check = True
-                    break
             elif piece.check_move(test_rank, test_file):
                 in_check = True
+            if piece_at is not None:
+                piece_at.undo_premove()
+            if in_check:
                 break
         self.undo_premove()
         return in_check
@@ -394,9 +399,6 @@ class Chess:
             if piece.rank == rank and piece.file == file:
                 return piece
         return None
-
-    def get_pieces_by_type(self):
-        ...
 
     def create_classic_setup(self):
         for file in range(Chess.FILES):
