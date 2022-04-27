@@ -149,7 +149,12 @@ class King(Piece):
             piece for piece in self.chess_board.pieces
             if isinstance(piece, Rook) and piece.team is self.team
         ]
-        can_try_castling = not self.has_moved and not dr and filter(lambda p: not p.has_moved, team_rooks) and not (check_check and self.is_checked())
+        can_try_castling = (
+            not self.has_moved and
+            not dr and
+            any(filter(lambda p: not p.has_moved, team_rooks)) and
+            not (check_check and self.is_checked())
+        )
         for i in range(1, 3 if can_try_castling else 2):
             test_rank = self.rank + i * dr
             test_file = self.file + i * df
@@ -491,8 +496,8 @@ class Chess:
                 self.pawn_captured_en_passant.capture()
                 self.pieces.remove(self.pawn_captured_en_passant)
                 self.pawn_captured_en_passant = None
-            # self.is_game_over(piece_to_move)
             self.change_player()
+            self.is_game_over()
 
     def highlight_available_moves(self):
         if self.selected_piece_pos is None:
@@ -519,12 +524,12 @@ class Chess:
                         if piece.square_colour == Chess.DARK_COLOUR:
                             piece.update_square_colour(Chess.HIGHLIGHT_DARK_COLOUR)
 
-    def is_game_over(self, piece_moved: Piece):
-        king = piece_moved.get_team_king()
-        if king is None:
+    def is_game_over(self):
+        try:
+            king = [piece for piece in self.pieces if isinstance(piece, King) and piece.team is self.current_player][0]
+        except IndexError:
             return
         king_pieces = [piece for piece in self.pieces if piece.team is king.team]
-        # king_pieces.remove(king)
         any_piece_can_move = False
         for piece in king_pieces:
             for rank in range(Chess.RANKS):
@@ -534,9 +539,9 @@ class Chess:
                         break
         if not any_piece_can_move:
             if king.is_checked():
-                ... # Checkmate
+                print('checkmate') # Checkmate
             else:
-                ... # Stalemate
+                print('stalemate') # Stalemate
 
 
 if __name__ == '__main__':
