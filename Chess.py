@@ -9,6 +9,7 @@ class Team(Enum):
 
 class GameState(Enum):
     PLAYING = auto()
+    PAUSED = auto()
     CHECKMATE = auto()
     STALEMATE = auto()
     INSUFFICIENT_MATERIAL = auto()
@@ -360,7 +361,6 @@ class Chess:
         self.pieces = []
         self.current_player = Team.WHITE
         self.selected_piece_pos = None
-        self.locked = False
         self.pawn_captured_en_passant = None
         self.castling_rook = None
         self.game_state = GameState.PLAYING
@@ -431,8 +431,19 @@ class Chess:
         self.create_piece(Chess.RANKS-1, Chess.FILES-5, Queen, Team.WHITE)
         self.create_piece(0, Chess.FILES-5, Queen, Team.BLACK)
 
+    def reset_classic_setup(self):
+        for piece in self.pieces:
+            piece.capture()
+        self.pieces.clear()
+        self.create_classic_setup()
+        self.current_player = Team.WHITE
+        self.game_state = GameState.PLAYING
+        self.selected_piece_pos = None
+        self.pawn_captured_en_passant = None
+        self.castling_rook = None
+
     def square_click_handler(self, event):
-        if self.selected_piece_pos is None or self.locked:
+        if self.selected_piece_pos is None or self.game_state is not GameState.PLAYING:
             return
         x = event.x_root - self.parent.winfo_rootx()
         y = event.y_root - self.parent.winfo_rooty()
@@ -441,7 +452,7 @@ class Chess:
         self.move_piece(rank, file)
 
     def piece_click_handler(self, position):
-        if self.locked:
+        if self.game_state is not GameState.PLAYING:
             return
         self.reset_board_colouring()
         piece = self.get_piece_at_pos(*position)
@@ -539,8 +550,10 @@ class Chess:
                         break
         if not any_piece_can_move:
             if king.is_checked():
+                self.game_state = GameState.CHECKMATE
                 print('checkmate') # Checkmate
             else:
+                self.game_state = GameState.STALEMATE
                 print('stalemate') # Stalemate
 
 
@@ -553,6 +566,8 @@ if __name__ == '__main__':
     chess = Chess(chess_frame)
     chess.set_up_board()
     chess.create_classic_setup()
-    root.bind("<Return>", lambda *_: chess.change_player())
+    # Debug, remember to remove
+    # root.bind('<Return>', lambda *_: chess.change_player())
+    # root.bind('<Control-r>', lambda *_: chess.reset_classic_setup())
     chess_frame.grid(row=0, column=0)
     root.mainloop()
