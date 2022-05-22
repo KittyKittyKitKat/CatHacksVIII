@@ -59,13 +59,17 @@ class Piece(tk.Label):
         self.grid(row=self.rank, column=self.file)
 
     def premove(self, rank, file):
-        self.stored_pos = self.rank, self.file
-        self.rank = rank
-        self.file = file
+        if not self.in_future:
+            self.stored_pos = self.rank, self.file
+            self.rank = rank
+            self.file = file
+            self.in_future = True
 
     def undo_premove(self):
-        self.rank, self.file = self.stored_pos
-        self.stored_pos = None
+        if self.in_future:
+            self.rank, self.file = self.stored_pos
+            self.stored_pos = None
+            self.in_future = False
 
     def move_results_in_check(self, test_rank, test_file):
         if self.team is not self.chess_board.current_player:
@@ -74,11 +78,9 @@ class Piece(tk.Label):
         if king is None:
             return
         self.premove(test_rank, test_file)
-        self.in_future = True
         would_be_check = False
         if king.is_checked():
             would_be_check = True
-        self.in_future = False
         self.undo_premove()
         return would_be_check
 
@@ -89,9 +91,9 @@ class Piece(tk.Label):
         if occupying_piece is not None:
             if occupying_piece.team is self.team:
                 return False
-            occupying_piece.premove(-1, -1)
+            self.chess_board.pieces.remove(occupying_piece)
             would_be_check = self.move_results_in_check(test_rank, test_file)
-            occupying_piece.undo_premove()
+            self.chess_board.pieces.append(occupying_piece)
         if would_be_check:
             return False
         return True
@@ -184,23 +186,26 @@ class King(Piece):
         return False
 
     def in_check_at_square(self, test_rank, test_file):
-        self.premove(-1, -1)
+        self.chess_board.pieces.remove(self)
         in_check = False
         pieces_that_could_check = [piece for piece in self.chess_board.pieces if piece.team is not self.team]
         piece_at = self.chess_board.get_piece_at_pos(test_rank, test_file)
         for piece in pieces_that_could_check:
             if piece_at is not None:
-                piece_at.premove(-1, -1)
+                self.chess_board.pieces.remove(piece_at)
             if isinstance(piece, King):
                 if piece.check_move(test_rank, test_file, check_check=False):
+                    in_check = True
+            elif isinstance(piece, Pawn):
+                if piece.check_move(test_rank, test_file, check_check=True):
                     in_check = True
             elif piece.check_move(test_rank, test_file):
                 in_check = True
             if piece_at is not None:
-                piece_at.undo_premove()
+                self.chess_board.pieces.append(piece_at)
             if in_check:
                 break
-        self.undo_premove()
+        self.chess_board.pieces.append(self)
         return in_check
 
     def is_checked(self):
@@ -299,7 +304,7 @@ class Pawn(Piece):
         super(). __init__(parent, team, image, rank, file, square_colour, chess_board)
         self.has_just_moved_double = False
 
-    def check_move(self, new_rank, new_file):
+    def check_move(self, new_rank, new_file, check_check=False):
         if self.in_future:
             test_against_rank, test_against_file = self.stored_pos
         else:
@@ -327,7 +332,7 @@ class Pawn(Piece):
             test_rank = test_against_rank + dr
             test_file = test_against_file + df
             if test_rank == new_rank and test_file == new_file:
-                if occupying_piece is not None and occupying_piece.team is not self.team:
+                if (occupying_piece is not None and occupying_piece.team is not self.team) or check_check:
                     return True
                 elif self.move_results_in_check(test_rank, test_file):
                     return False
