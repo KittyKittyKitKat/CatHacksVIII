@@ -373,7 +373,7 @@ class Chess:
     RANKS = 8
     FILES = 8
 
-    def __init__(self, parent):
+    def __init__(self, parent, square_sheet):
         self.parent = parent
         square_img = Image.new('RGBA', (Square.SQUARE_SIZE, Square.SQUARE_SIZE), (255, 0, 0, 0))
         self.squares = [[Square(parent, square_img) for f in range(Chess.FILES)] for r in range(Chess.RANKS)]
@@ -384,10 +384,21 @@ class Chess:
         self.castling_rook = None
         self.game_state = GameState.PLAYING
         self.occupied_squares = []
-        self.LIGHT_SQUARE_IMAGE = Image.open('assets/chess/lightsquare.png')
-        self.DARK_SQUARE_IMAGE = Image.open('assets/chess/darksquare.png')
-        self.HIGHLIGHT_LIGHT_SQUARE_IMAGE = Image.open('assets/chess/hlightsquare.png')
-        self.HIGHLIGHT_DARK_SQUARE_IMAGE = Image.open('assets/chess/hdarksquare.png')
+        self._init_images(Image.open(square_sheet))
+
+    def _init_images(self, spritesheet: Image.Image):
+        images = []
+        x, y = spritesheet.size
+        for i in range(0, y, Square.SQUARE_SIZE):
+            for j in range(0, x, Square.SQUARE_SIZE):
+                im = spritesheet.crop((j, i, j + Square.SQUARE_SIZE, i + Square.SQUARE_SIZE))
+                images.append(im)
+        self.LIGHT_SQUARE_IMAGE,\
+        self.DARK_SQUARE_IMAGE,\
+        self.HIGHLIGHT_LIGHT_SQUARE_IMAGE,\
+        self.HIGHLIGHT_DARK_SQUARE_IMAGE,\
+        self.LIGHT_CHECK_SQUARE_IMAGE,\
+        self.DARK_CHECK_SQUARE_IMAGE = images
 
     def set_up_board(self):
         for rank in range(self.RANKS):
@@ -427,6 +438,14 @@ class Chess:
                 return piece
         return None
 
+    def get_current_king(self):
+        try:
+            king = [piece for piece in self.pieces if isinstance(piece, King) and piece.team is self.current_player][0]
+        except IndexError:
+            return None
+        else:
+            return king
+
     def create_classic_setup(self):
         for file in range(Chess.FILES):
             self.create_piece(Chess.RANKS-2, file, Pawn, Team.WHITE)
@@ -455,7 +474,8 @@ class Chess:
 
     def reset_classic_setup(self):
         self.reset_board_colouring()
-        for piece in self.pieces:
+        while self.pieces:
+            piece = self.pieces[0]
             self.capture_piece(piece)
         self.create_classic_setup()
         self.current_player = Team.WHITE
@@ -480,16 +500,19 @@ class Chess:
                 self.selected_piece = square_clicked.occupying_piece
                 self.reset_board_colouring()
                 self.highlight_available_moves()
+                self.highlight_check()
         else:
             if square_clicked.occupying_piece is not None:
                 if square_clicked.occupying_piece is self.selected_piece:
                     self.reset_board_colouring()
+                    self.highlight_check()
                     self.selected_piece = None
                     return
                 if square_clicked.occupying_piece.team is self.selected_piece.team:
                     self.selected_piece = square_clicked.occupying_piece
                     self.reset_board_colouring()
                     self.highlight_available_moves()
+                    self.highlight_check()
                     return
             self.player_move(rank, file)
 
@@ -520,6 +543,7 @@ class Chess:
                 self.pawn_captured_en_passant = None
             self.move_piece(piece_to_move, new_rank, new_file)
             self.change_player()
+            self.highlight_check()
             self.is_game_over()
 
     def move_piece(self, piece, new_rank, new_file):
@@ -548,10 +572,18 @@ class Chess:
                     if square.background_image == self.DARK_SQUARE_IMAGE:
                         square.change_background_image(self.HIGHLIGHT_DARK_SQUARE_IMAGE)
 
+    def highlight_check(self):
+        king = self.get_current_king()
+        if king is not None:
+            if king.is_checked():
+                king_square = self.squares[king.rank][king.file]
+                if king_square.background_image is self.LIGHT_SQUARE_IMAGE:
+                    king_square.change_background_image(self.LIGHT_CHECK_SQUARE_IMAGE)
+                elif king_square.background_image is self.DARK_SQUARE_IMAGE:
+                    king_square.change_background_image(self.DARK_CHECK_SQUARE_IMAGE)
+
     def is_game_over(self):
-        try:
-            king = [piece for piece in self.pieces if isinstance(piece, King) and piece.team is self.current_player][0]
-        except IndexError:
+        if (king := self.get_current_king()) is None:
             return
         king_pieces = [piece for piece in self.pieces if piece.team is king.team]
         any_piece_can_move = False
@@ -576,7 +608,7 @@ if __name__ == '__main__':
     root.title('Chess')
     chess_frame = tk.Frame(root, height=Square.SQUARE_SIZE*Chess.RANKS, width=Square.SQUARE_SIZE*Chess.FILES)
     chess_frame.grid_propagate(False)
-    chess = Chess(chess_frame)
+    chess = Chess(chess_frame, 'assets/chess/squares.png')
     chess.set_up_board()
     chess.create_classic_setup()
     # Debug, remember to remove
