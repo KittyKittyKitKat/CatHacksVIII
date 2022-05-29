@@ -366,7 +366,6 @@ class Square(tk.Label):
             d.text((2, 0), f'{Chess.RANKS - self.rank}', font=fnt, fill=font_colour)
 
         if self.rank == Chess.RANKS-1:
-            print(chr(97+self.file))
             d.text((Square.SQUARE_SIZE-9, Square.SQUARE_SIZE-16), chr(97+self.file), font=fnt, fill=font_colour)
 
         self.background_image = new_bg
