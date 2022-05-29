@@ -341,29 +341,40 @@ class Square(tk.Label):
         self.parent = parent
         self.rank = rank
         self.file = file
-        self.needs_text = (rank == Chess.RANKS-1 or file == 0)
-        self.chess_board = chess_board
+        self.chess_board: Chess = chess_board
         self.width = Square.SQUARE_SIZE
         self.height = Square.SQUARE_SIZE
         self.occupying_piece = None
         self.background_image = background_image
-        self.highlight_color = None
+        self.highlight_colour = None
         self.piece = None
         self.tk_image = ImageTk.PhotoImage(self.background_image)
         super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
+        self.add_text()
 
-    def change_background_image(self, new_background_image):
-        self.background_image = new_background_image
+    def add_text(self):
+        fnt = ImageFont.truetype('assets/chess/Rubik-Medium.ttf', 13)
+        new_bg = self.background_image.copy()
+        d = ImageDraw.Draw(new_bg)
+
+        if self.background_image is self.chess_board.LIGHT_SQUARE_IMAGE:
+            font_colour = self.chess_board.DARK_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        elif self.background_image is self.chess_board.DARK_SQUARE_IMAGE:
+            font_colour = self.chess_board.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+
+        if self.file == 0:
+            d.text((2, 0), f'{Chess.RANKS - self.rank}', font=fnt, fill=font_colour)
+
+        if self.rank == Chess.RANKS-1:
+            print(chr(97+self.file))
+            d.text((Square.SQUARE_SIZE-9, Square.SQUARE_SIZE-16), chr(97+self.file), font=fnt, fill=font_colour)
+
+        self.background_image = new_bg
         self.tk_image = ImageTk.PhotoImage(self.background_image)
-        if self.occupying_piece is None:
-            self.config(image=self.tk_image)
-        else:
-            self.place_piece(self.occupying_piece)
-        if self.highlight_color is not None:
-            self.highlight(self.highlight_color)
+        self.config(image=self.tk_image)
 
     def highlight(self, colour_rgb):
-        self.highlight_color = colour_rgb
+        self.highlight_colour = colour_rgb
         highlighted = ImageOps.colorize(
             ImageOps.grayscale(self.background_image),
             black=tuple(int(.3 * c) for c in colour_rgb),
@@ -376,7 +387,7 @@ class Square(tk.Label):
             self.place_piece(self.occupying_piece)
 
     def remove_highlight(self):
-        self.highlight_color = None
+        self.highlight_colour = None
         self.tk_image = ImageTk.PhotoImage(self.background_image)
         if self.occupying_piece is None:
             self.config(image=self.tk_image)
@@ -403,8 +414,7 @@ class Chess:
 
     def __init__(self, parent, square_sheet):
         self.parent = parent
-        square_img = Image.new('RGBA', (Square.SQUARE_SIZE, Square.SQUARE_SIZE), (255, 0, 0, 0))
-        self.squares = [[Square(parent, r, f, self, square_img) for f in range(Chess.FILES)] for r in range(Chess.RANKS)]
+        self.squares = []
         self.pieces = []
         self.current_player = Team.WHITE
         self.selected_piece = None
@@ -422,15 +432,18 @@ class Chess:
             self.parent.grid_rowconfigure(rank, minsize=Square.SQUARE_SIZE)
         for file in range(self.FILES):
             self.parent.grid_columnconfigure(file, minsize=Square.SQUARE_SIZE)
+
         for rank in range(self.RANKS):
             light = not (rank % 2)
+            row = []
             for file in range(self.FILES):
                 colour = self.LIGHT_SQUARE_IMAGE if light else self.DARK_SQUARE_IMAGE
-                square = self.squares[rank][file]
-                square.change_background_image(colour)
+                square = Square(self.parent, rank, file, self, colour)
                 light = not light
                 square.bind('<Button-1>', self.click_handler)
                 square.grid(row=rank, column=file)
+                row.append(square)
+            self.squares.append(row)
 
     def reset_board_colouring(self):
         for rank in self.squares:
