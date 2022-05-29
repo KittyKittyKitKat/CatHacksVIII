@@ -1,6 +1,6 @@
 import tkinter as tk
 from enum import Enum, auto
-from PIL import Image, ImageTk
+from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageTk
 
 class Team(Enum):
     WHITE = auto()
@@ -337,15 +337,19 @@ class Pawn(Piece):
 class Square(tk.Label):
     SQUARE_SIZE = 64
 
-    def __init__(self, parent, background_image):
+    def __init__(self, parent, rank, file, chess_board, background_image):
         self.parent = parent
+        self.rank = rank
+        self.file = file
+        self.needs_text = (rank == Chess.RANKS-1 or file == 0)
+        self.chess_board = chess_board
         self.width = Square.SQUARE_SIZE
         self.height = Square.SQUARE_SIZE
         self.occupying_piece = None
         self.background_image = background_image
         self.piece = None
         self.tk_image = ImageTk.PhotoImage(self.background_image)
-        super().__init__(parent, width=Square.SQUARE_SIZE, height= Square.SQUARE_SIZE, bd=0, image=self.tk_image)
+        super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
 
     def change_background_image(self, new_background_image):
         self.background_image = new_background_image
@@ -355,10 +359,30 @@ class Square(tk.Label):
         else:
             self.place_piece(self.occupying_piece)
 
+    def highlight(self, colour_rgb):
+        highlighted = ImageOps.colorize(
+            ImageOps.grayscale(self.background_image),
+            black=(0,0,0),
+            white=(255, 255, 255),
+            mid=colour_rgb
+        )
+        self.tk_image = ImageTk.PhotoImage(highlighted)
+        if self.occupying_piece is None:
+            self.config(image=self.tk_image)
+        else:
+            self.place_piece(self.occupying_piece)
+
+    def remove_highlight(self):
+        self.tk_image = ImageTk.PhotoImage(self.background_image)
+        if self.occupying_piece is None:
+            self.config(image=self.tk_image)
+        else:
+            self.place_piece(self.occupying_piece)
+
     def place_piece(self, piece):
         self.occupying_piece = piece
         piece_image = piece.image
-        composite = self.background_image.copy()
+        composite = ImageTk.getimage(self.tk_image).copy()
         composite.paste(piece_image, (2, 2), piece_image)
         self.tk_image = ImageTk.PhotoImage(composite)
         self.config(image=self.tk_image)
@@ -376,29 +400,18 @@ class Chess:
     def __init__(self, parent, square_sheet):
         self.parent = parent
         square_img = Image.new('RGBA', (Square.SQUARE_SIZE, Square.SQUARE_SIZE), (255, 0, 0, 0))
-        self.squares = [[Square(parent, square_img) for f in range(Chess.FILES)] for r in range(Chess.RANKS)]
+        self.squares = [[Square(parent, r, f, self, square_img) for f in range(Chess.FILES)] for r in range(Chess.RANKS)]
         self.pieces = []
         self.current_player = Team.WHITE
         self.selected_piece = None
         self.pawn_captured_en_passant = None
         self.castling_rook = None
         self.game_state = GameState.PLAYING
-        self.occupied_squares = []
-        self._init_images(Image.open(square_sheet))
-
-    def _init_images(self, spritesheet: Image.Image):
-        images = []
-        x, y = spritesheet.size
-        for i in range(0, y, Square.SQUARE_SIZE):
-            for j in range(0, x, Square.SQUARE_SIZE):
-                im = spritesheet.crop((j, i, j + Square.SQUARE_SIZE, i + Square.SQUARE_SIZE))
-                images.append(im)
-        self.LIGHT_SQUARE_IMAGE,\
-        self.DARK_SQUARE_IMAGE,\
-        self.HIGHLIGHT_LIGHT_SQUARE_IMAGE,\
-        self.HIGHLIGHT_DARK_SQUARE_IMAGE,\
-        self.LIGHT_CHECK_SQUARE_IMAGE,\
-        self.DARK_CHECK_SQUARE_IMAGE = images
+        self.highlight_move_colour = (0, 255, 0)
+        self.highlight_check_colour = (255, 0, 0)
+        spritesheet = Image.open(square_sheet)
+        self.LIGHT_SQUARE_IMAGE = spritesheet.crop((0, 0, 64, 64))
+        self.DARK_SQUARE_IMAGE = spritesheet.crop((64, 0, 128, 64))
 
     def set_up_board(self):
         for rank in range(self.RANKS):
@@ -406,20 +419,19 @@ class Chess:
         for file in range(self.FILES):
             self.parent.grid_columnconfigure(file, minsize=Square.SQUARE_SIZE)
         for rank in range(self.RANKS):
-            for file in range(self.FILES):
-                square = self.squares[rank][file]
-                square.bind('<Button-1>', self.click_handler)
-                square.grid(row=rank, column=file)
-        self.reset_board_colouring()
-
-    def reset_board_colouring(self):
-        for rank in range(self.RANKS):
             light = not (rank % 2)
             for file in range(self.FILES):
                 colour = self.LIGHT_SQUARE_IMAGE if light else self.DARK_SQUARE_IMAGE
                 square = self.squares[rank][file]
                 square.change_background_image(colour)
                 light = not light
+                square.bind('<Button-1>', self.click_handler)
+                square.grid(row=rank, column=file)
+
+    def reset_board_colouring(self):
+        for rank in self.squares:
+            for square in rank:
+                square.remove_highlight()
 
     def create_piece(self, rank, file, piece_cls, team):
         images = PieceImage[piece_cls.__name__.upper()].value
@@ -430,7 +442,6 @@ class Chess:
         square.place_piece(piece)
         piece.has_moved = False
         self.pieces.append(piece)
-        self.occupied_squares.append((rank, file))
 
     def get_piece_at_pos(self, rank, file):
         for piece in self.pieces:
@@ -567,20 +578,14 @@ class Chess:
             for f in range(Chess.FILES):
                 if self.selected_piece.check_move(r, f) or (self.selected_piece.rank == r and self.selected_piece.file == f):
                     square = self.squares[r][f]
-                    if square.background_image == self.LIGHT_SQUARE_IMAGE:
-                        square.change_background_image(self.HIGHLIGHT_LIGHT_SQUARE_IMAGE)
-                    if square.background_image == self.DARK_SQUARE_IMAGE:
-                        square.change_background_image(self.HIGHLIGHT_DARK_SQUARE_IMAGE)
+                    square.highlight(self.highlight_move_colour)
 
     def highlight_check(self):
         king = self.get_current_king()
         if king is not None:
             if king.is_checked():
                 king_square = self.squares[king.rank][king.file]
-                if king_square.background_image is self.LIGHT_SQUARE_IMAGE:
-                    king_square.change_background_image(self.LIGHT_CHECK_SQUARE_IMAGE)
-                elif king_square.background_image is self.DARK_SQUARE_IMAGE:
-                    king_square.change_background_image(self.DARK_CHECK_SQUARE_IMAGE)
+                king_square.highlight(self.highlight_check_colour)
 
     def is_game_over(self):
         if (king := self.get_current_king()) is None:
