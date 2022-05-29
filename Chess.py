@@ -347,6 +347,7 @@ class Square(tk.Label):
         self.height = Square.SQUARE_SIZE
         self.occupying_piece = None
         self.background_image = background_image
+        self.highlight_color = None
         self.piece = None
         self.tk_image = ImageTk.PhotoImage(self.background_image)
         super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
@@ -358,13 +359,15 @@ class Square(tk.Label):
             self.config(image=self.tk_image)
         else:
             self.place_piece(self.occupying_piece)
+        if self.highlight_color is not None:
+            self.highlight(self.highlight_color)
 
     def highlight(self, colour_rgb):
+        self.highlight_color = colour_rgb
         highlighted = ImageOps.colorize(
             ImageOps.grayscale(self.background_image),
-            black=(0,0,0),
-            white=(255, 255, 255),
-            mid=colour_rgb
+            black=tuple(int(.3 * c) for c in colour_rgb),
+            white=tuple(min(c+100, 255) for c in colour_rgb)
         )
         self.tk_image = ImageTk.PhotoImage(highlighted)
         if self.occupying_piece is None:
@@ -373,6 +376,7 @@ class Square(tk.Label):
             self.place_piece(self.occupying_piece)
 
     def remove_highlight(self):
+        self.highlight_color = None
         self.tk_image = ImageTk.PhotoImage(self.background_image)
         if self.occupying_piece is None:
             self.config(image=self.tk_image)
