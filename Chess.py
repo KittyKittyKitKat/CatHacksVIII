@@ -186,7 +186,8 @@ class King(Piece):
                     in_check = True
             elif isinstance(piece, Pawn):
                 if piece.check_move(test_rank, test_file, check_check=True):
-                    in_check = True
+                    if piece.file != test_file:
+                        in_check = True
             elif piece.check_move(test_rank, test_file):
                 in_check = True
             if piece_at is not None:
