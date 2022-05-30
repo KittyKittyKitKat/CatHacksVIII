@@ -411,11 +411,12 @@ class Chess:
     RANKS = 8
     FILES = 8
 
-    def __init__(self, parent, square_sheet):
+    def __init__(self, parent, square_sheet, flip_after_move):
         self.parent = parent
         self.squares = []
         self.pieces = []
         self.current_player = Team.WHITE
+        self.flip_after_move = flip_after_move
         self.board_flipped = False
         self.selected_piece = None
         self.pawn_captured_en_passant = None
@@ -513,6 +514,8 @@ class Chess:
         self.castling_rook = None
 
     def flip_board(self):
+        if not self.flip_after_move:
+            return
         self.board_flipped = not self.board_flipped
         for rank in self.squares:
             for square in rank:
@@ -645,7 +648,7 @@ if __name__ == '__main__':
     root.title('Chess')
     chess_frame = tk.Frame(root, height=Square.SQUARE_SIZE*Chess.RANKS, width=Square.SQUARE_SIZE*Chess.FILES)
     chess_frame.grid_propagate(False)
-    chess = Chess(chess_frame, 'assets/chess/squares.png')
+    chess = Chess(chess_frame, 'assets/chess/squares.png', False)
     chess.set_up_board()
     chess.create_classic_setup()
     # Debug, remember to remove
