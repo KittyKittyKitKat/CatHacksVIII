@@ -341,7 +341,7 @@ class Square(tk.Label):
         self.parent = parent
         self.rank = rank
         self.file = file
-        self.chess_board: Chess = chess_board
+        self.chess_board = chess_board
         self.width = Square.SQUARE_SIZE
         self.height = Square.SQUARE_SIZE
         self.occupying_piece = None
@@ -416,6 +416,7 @@ class Chess:
         self.squares = []
         self.pieces = []
         self.current_player = Team.WHITE
+        self.board_flipped = False
         self.selected_piece = None
         self.pawn_captured_en_passant = None
         self.castling_rook = None
@@ -511,6 +512,17 @@ class Chess:
         self.pawn_captured_en_passant = None
         self.castling_rook = None
 
+    def flip_board(self):
+        self.board_flipped = not self.board_flipped
+        for rank in self.squares:
+            for square in rank:
+                internal_pos = square.rank, square.file
+                grid_pos = square.grid_info()['row'], square.grid_info()['column']
+                if internal_pos == grid_pos:
+                    square.grid(row=Chess.RANKS-square.rank-1, column=Chess.FILES-square.file-1)
+                else:
+                    square.grid(row=square.rank, column=square.file)
+
     def click_handler(self, event):
         if self.game_state is not GameState.PLAYING:
             return
@@ -518,6 +530,9 @@ class Chess:
         y = event.y_root - self.parent.winfo_rooty()
         rank = (y // Square.SQUARE_SIZE) % 8
         file = (x // Square.SQUARE_SIZE) % 8
+        if self.board_flipped:
+            rank = Chess.RANKS - rank - 1
+            file = Chess.FILES - file - 1
         square_clicked = self.squares[rank][file]
 
         if self.selected_piece is None:
@@ -572,6 +587,7 @@ class Chess:
             self.change_player()
             self.highlight_check()
             self.is_game_over()
+            self.flip_board()
 
     def move_piece(self, piece, new_rank, new_file):
         current_square = self.squares[piece.rank][piece.file]
@@ -635,5 +651,6 @@ if __name__ == '__main__':
     # Debug, remember to remove
     # root.bind('<Return>', lambda *_: chess.change_player())
     # root.bind('<Control-r>', lambda *_: chess.reset_classic_setup())
+    # root.bind('<Control-f>', lambda *_: chess.flip_board())
     chess_frame.grid(row=0, column=0)
     root.mainloop()
