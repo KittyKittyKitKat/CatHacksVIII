@@ -584,10 +584,13 @@ class Chess:
             captured_piece = self.get_piece_at_pos(new_rank, new_file)
             if captured_piece is not None:
                 self.capture_piece(captured_piece)
-            if isinstance(piece_to_move, Pawn) and self.pawn_captured_en_passant is not None:
-                self.capture_piece(self.pawn_captured_en_passant)
-                self.pawn_captured_en_passant = None
             self.move_piece(piece_to_move, new_rank, new_file)
+            if isinstance(piece_to_move, Pawn):
+                if self.pawn_captured_en_passant is not None:
+                    self.capture_piece(self.pawn_captured_en_passant)
+                    self.pawn_captured_en_passant = None
+                if new_rank == 0 or new_rank == Chess.RANKS - 1:
+                    self.promote_piece(piece_to_move)
             self.change_player()
             self.highlight_check()
             self.is_game_over()
@@ -604,6 +607,10 @@ class Chess:
         current_square = self.squares[piece.rank][piece.file]
         current_square.remove_piece()
         self.pieces.remove(piece)
+
+    def promote_piece(self, piece):
+        self.capture_piece(piece)
+        self.create_piece(piece.rank, piece.file, Queen, piece.team)
 
     def highlight_available_moves(self):
         if self.selected_piece is None:
