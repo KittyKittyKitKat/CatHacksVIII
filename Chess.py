@@ -338,36 +338,29 @@ class Pawn(Piece):
 class Square(tk.Label):
     SQUARE_SIZE = 64
 
-    def __init__(self, parent, rank, file, chess_board, background_image):
+    def __init__(self, parent, background_image):
         self.parent = parent
-        self.rank = rank
-        self.file = file
-        self.chess_board = chess_board
-        self.width = Square.SQUARE_SIZE
-        self.height = Square.SQUARE_SIZE
         self.occupying_piece = None
         self.background_image = background_image
         self.highlight_colour = None
-        self.piece = None
         self.tk_image = ImageTk.PhotoImage(self.background_image)
         super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
-        self.add_text()
 
-    def add_text(self):
+    def add_text(self, rank, file, chess_board):
         fnt = ImageFont.truetype('assets/chess/Rubik-Medium.ttf', 13)
         new_bg = self.background_image.copy()
         d = ImageDraw.Draw(new_bg)
 
-        if self.background_image is self.chess_board.LIGHT_SQUARE_IMAGE:
-            font_colour = self.chess_board.DARK_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
-        elif self.background_image is self.chess_board.DARK_SQUARE_IMAGE:
-            font_colour = self.chess_board.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        if self.background_image is chess_board.LIGHT_SQUARE_IMAGE:
+            font_colour = chess_board.DARK_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        elif self.background_image is chess_board.DARK_SQUARE_IMAGE:
+            font_colour = chess_board.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
 
-        if self.file == 0:
-            d.text((2, 0), f'{Chess.RANKS - self.rank}', font=fnt, fill=font_colour)
+        if file == 0:
+            d.text((2, 0), f'{Chess.RANKS - rank}', font=fnt, fill=font_colour)
 
-        if self.rank == Chess.RANKS-1:
-            d.text((Square.SQUARE_SIZE-9, Square.SQUARE_SIZE-16), chr(97+self.file), font=fnt, fill=font_colour)
+        if rank == Chess.RANKS-1:
+            d.text((Square.SQUARE_SIZE-9, Square.SQUARE_SIZE-16), chr(97+file), font=fnt, fill=font_colour)
 
         self.background_image = new_bg
         self.tk_image = ImageTk.PhotoImage(self.background_image)
@@ -440,7 +433,8 @@ class Chess:
             row = []
             for file in range(self.FILES):
                 colour = self.LIGHT_SQUARE_IMAGE if light else self.DARK_SQUARE_IMAGE
-                square = Square(self.parent, rank, file, self, colour)
+                square = Square(self.parent, colour)
+                square.add_text(rank, file, self)
                 light = not light
                 square.bind('<Button-1>', self.click_handler)
                 square.grid(row=rank, column=file)
