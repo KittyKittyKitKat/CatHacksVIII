@@ -450,10 +450,8 @@ class Chess:
         images = PieceImage[piece_cls.__name__.upper()].value
         image = images[0] if team is Team.WHITE else images[1]
         piece = piece_cls(self.parent, team, image, rank, file, self)
-        piece.move(rank, file)
         square = self.squares[rank][file]
         square.place_piece(piece)
-        piece.has_moved = False
         self.pieces.append(piece)
 
     def get_piece_at_pos(self, rank, file):
@@ -603,8 +601,70 @@ class Chess:
         self.pieces.remove(piece)
 
     def promote_piece(self, piece):
-        self.capture_piece(piece)
-        self.create_piece(piece.rank, piece.file, Queen, piece.team)
+        for rank in self.squares:
+            for board_square in rank:
+                board_square.highlight((150, 150, 150))
+
+        parent_root = self.parent.winfo_toplevel()
+        promote_root = tk.Toplevel()
+        promote_root.resizable(0, 0)
+        promote_root.wm_attributes('-type', 'splash')
+        promotion_frame = tk.Frame(promote_root, height=Square.SQUARE_SIZE, width=Square.SQUARE_SIZE*4)
+
+        squares = []
+        piece_index = {
+            0: Queen,
+            1: Rook,
+            2: Knight,
+            3: Bishop
+        }
+
+        def sync_windows(event=None):
+            promote_root_x = parent_root.winfo_x() + parent_root.winfo_width()//4
+            promote_root_y = parent_root.winfo_y() + parent_root.winfo_height()//2 - Square.SQUARE_SIZE//2
+            promote_root.geometry(f'+{promote_root_x}+{promote_root_y}')
+
+        def hover_handler(event):
+            x = event.x_root - promotion_frame.winfo_rootx()
+            y = event.y_root - promotion_frame.winfo_rooty()
+            if x not in range(Square.SQUARE_SIZE*4+1):
+                return
+            if y not in range(Square.SQUARE_SIZE+1):
+                return
+            file = (x // Square.SQUARE_SIZE) % 4
+            for square in squares:
+                square.remove_highlight()
+            squares[file].highlight(self.highlight_move_colour)
+
+        def click_handler(square):
+            promotion = piece_index[squares.index(square)]
+            self.capture_piece(piece)
+            self.create_piece(piece.rank, piece.file, promotion, piece.team)
+            promote_root.grab_release()
+            promote_root.destroy()
+            for rank in self.squares:
+                for board_square in rank:
+                    board_square.remove_highlight()
+
+        for i in range(4):
+            colour = self.DARK_SQUARE_IMAGE if i % 2 else self.LIGHT_SQUARE_IMAGE
+            square = Square(promotion_frame, colour)
+            piece_cls = piece_index[i]
+            images = PieceImage[piece_cls.__name__.upper()].value
+            image = images[0] if piece.team is Team.WHITE else images[1]
+            square_piece = piece_cls(promotion_frame, piece.team, image, 0, 0, None)
+            square.place_piece(square_piece)
+            square.bind('<Button-1>',lambda e, square=square: click_handler(square))
+            square.grid(row=0, column=i)
+            squares.append(square)
+
+        promotion_frame.grid(row=0, column=0)
+        promote_root.bind('<Motion>', hover_handler)
+        promote_root.wait_visibility()
+        promote_root.grab_set()
+        promote_root.transient(parent_root)
+        sync_windows()
+        parent_root.bind('<Configure>', sync_windows)
 
     def highlight_available_moves(self):
         if self.selected_piece is None:
