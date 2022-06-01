@@ -300,6 +300,7 @@ class Pawn(Piece):
             test_against_rank, test_against_file = self.rank, self.file
         if new_rank == test_against_rank and new_file == test_against_file:
             return False
+        self.chess_board.pawn_captured_en_passant = None
         dr, df = self.get_direction_to_check(new_rank - test_against_rank, new_file - test_against_file)
         if (dr > 0 and self.team is Team.WHITE) or (dr < 0 and self.team is Team.BLACK):
             return False
@@ -330,8 +331,6 @@ class Pawn(Piece):
                     if isinstance(en_passant_pawn, Pawn) and en_passant_pawn.has_just_moved_double and en_passant_pawn.team is not self.team:
                         self.chess_board.pawn_captured_en_passant = en_passant_pawn
                         return True
-                    else:
-                        self.chess_board.pawn_captured_en_passant = None
         return False
 
 
@@ -716,6 +715,5 @@ if __name__ == '__main__':
     # Debug, remember to remove
     # root.bind('<Return>', lambda *_: chess.change_player())
     # root.bind('<Control-r>', lambda *_: chess.reset_classic_setup())
-    # root.bind('<Control-f>', lambda *_: chess.flip_board())
     chess_frame.grid(row=0, column=0)
     root.mainloop()
