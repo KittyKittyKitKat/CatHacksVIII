@@ -346,7 +346,7 @@ class Square(tk.Label):
         super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
 
     def add_text(self, rank, file, chess_board):
-        fnt = ImageFont.truetype('assets/chess/Rubik-Medium.ttf', 13)
+        fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', 13)
         new_bg = self.background_image.copy()
         d = ImageDraw.Draw(new_bg)
 
