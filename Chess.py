@@ -636,6 +636,7 @@ class Chess:
             squares[file].highlight(self.highlight_move_colour)
 
         def click_handler(square):
+            promote_root.unbind('<Configure>')
             promotion = piece_index[squares.index(square)]
             self.capture_piece(piece)
             self.create_piece(piece.rank, piece.file, promotion, piece.team)
