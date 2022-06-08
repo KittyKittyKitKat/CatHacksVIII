@@ -434,8 +434,10 @@ class Chess:
     def _config_widgets(self):
         self.parent.grid_propagate(False)
         self.parent.config(
-            height=Square.SQUARE_SIZE*Chess.RANKS,
-            width=Square.SQUARE_SIZE*Chess.FILES
+            height=Square.SQUARE_SIZE*Chess.RANKS+2*self.BORDER_WIDTH,
+            width=Square.SQUARE_SIZE*Chess.FILES+2*self.BORDER_WIDTH,
+            highlightbackground='white',
+            highlightthickness=self.BORDER_WIDTH
         )
 
     def _make_text_label(self, parent, text, font_size):
