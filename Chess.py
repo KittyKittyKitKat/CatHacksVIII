@@ -17,6 +17,7 @@ class GameState(Enum):
     THREEFOLD_REPETITION = auto()
     FIFTY_MOVE = auto()
     MUTUAL_DRAW = auto()
+    RESIGNED = auto()
 
 
 class PieceImage(Enum):
@@ -337,8 +338,10 @@ class Pawn(Piece):
 class Square(tk.Label):
     SQUARE_SIZE = 64
 
-    def __init__(self, parent, background_image):
+    def __init__(self, parent, background_image, rank, file):
         self.parent = parent
+        self.rank = rank
+        self.file = file
         self.occupying_piece = None
         self.background_image = background_image
         self.highlight_colour = None
@@ -403,6 +406,7 @@ class Square(tk.Label):
 class Chess:
     RANKS = 8
     FILES = 8
+    BORDER_WIDTH=2
 
     def __init__(self, parent, square_sheet, flip_after_move):
         self.parent = parent
@@ -417,22 +421,44 @@ class Chess:
         self.game_state = GameState.PLAYING
         self.highlight_move_colour = (0, 255, 0)
         self.highlight_check_colour = (255, 0, 0)
+        self.texts = {}
         spritesheet = Image.open(square_sheet)
         self.LIGHT_SQUARE_IMAGE = spritesheet.crop((0, 0, 64, 64))
         self.DARK_SQUARE_IMAGE = spritesheet.crop((64, 0, 128, 64))
+        self.font_colour = self.DARK_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        self.bg_colour = self.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        self._config_widgets()
+        self.set_up_board()
+        self.create_classic_setup()
+
+    def _config_widgets(self):
+        self.parent.grid_propagate(False)
+        self.parent.config(
+            height=Square.SQUARE_SIZE*Chess.RANKS,
+            width=Square.SQUARE_SIZE*Chess.FILES
+        )
+
+    def _make_text_label(self, parent, text, font_size):
+        if text not in self.texts:
+            fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+            size = fnt.getsize(text)
+            text_img = Image.new('RGBA', size, self.bg_colour)
+            d = ImageDraw.Draw(text_img, 'RGBA')
+            d.text((0, 0), text, font=fnt, fill=self.font_colour)
+            text_tk = ImageTk.PhotoImage(text_img)
+            self.texts[text] = text_tk
+        else:
+            text_tk = self.texts[text]
+        text_label = tk.Label(parent, bd=0, image=text_tk)
+        return text_label
 
     def set_up_board(self):
-        for rank in range(self.RANKS):
-            self.parent.grid_rowconfigure(rank, minsize=Square.SQUARE_SIZE)
-        for file in range(self.FILES):
-            self.parent.grid_columnconfigure(file, minsize=Square.SQUARE_SIZE)
-
         for rank in range(self.RANKS):
             light = not (rank % 2)
             row = []
             for file in range(self.FILES):
                 colour = self.LIGHT_SQUARE_IMAGE if light else self.DARK_SQUARE_IMAGE
-                square = Square(self.parent, colour)
+                square = Square(self.parent, colour, rank, file)
                 square.add_text(rank, file, self)
                 light = not light
                 square.bind('<Button-1>', self.click_handler)
@@ -504,6 +530,8 @@ class Chess:
         self.selected_piece = None
         self.pawn_captured_en_passant = None
         self.castling_rook = None
+        if self.board_flipped:
+            self.flip_board()
 
     def flip_board(self):
         if not self.flip_after_move:
@@ -584,8 +612,9 @@ class Chess:
                     self.promote_piece(piece_to_move)
             self.change_player()
             self.highlight_check()
-            self.is_game_over()
-            self.flip_board()
+            over = self.is_game_over()
+            if not over:
+                self.flip_board()
 
     def move_piece(self, piece, new_rank, new_file):
         current_square = self.squares[piece.rank][piece.file]
@@ -600,16 +629,18 @@ class Chess:
         self.pieces.remove(piece)
 
     def promote_piece(self, piece):
-        for rank in self.squares:
-            for board_square in rank:
-                board_square.highlight((150, 150, 150))
-
+        self.grey_out_board()
         parent_root = self.parent.winfo_toplevel()
         promote_root = tk.Toplevel()
         promote_root.resizable(0, 0)
         promote_root.wm_attributes('-type', 'splash')
-        promotion_frame = tk.Frame(promote_root, height=Square.SQUARE_SIZE, width=Square.SQUARE_SIZE*4)
-
+        promotion_frame = tk.Frame(
+            promote_root,
+            height=Square.SQUARE_SIZE + 2 * self.BORDER_WIDTH,
+            width=Square.SQUARE_SIZE*4 + 2 * self.BORDER_WIDTH,
+            highlightthickness=self.BORDER_WIDTH,
+            highlightbackground='white'
+        )
         squares = []
         piece_index = {
             0: Queen,
@@ -677,6 +708,11 @@ class Chess:
                     square = self.squares[r][f]
                     square.highlight(self.highlight_move_colour)
 
+    def grey_out_board(self):
+        for rank in self.squares:
+            for board_square in rank:
+                board_square.highlight((150, 150, 150))
+
     def highlight_check(self):
         king = self.get_current_king()
         if king is not None:
@@ -698,21 +734,75 @@ class Chess:
         if not any_piece_can_move:
             if king.is_checked():
                 self.game_state = GameState.CHECKMATE
-                print('checkmate')
             else:
                 self.game_state = GameState.STALEMATE
-                print('stalemate')
+        if self.game_state not in (GameState.PLAYING, GameState.PAUSED):
+            self.game_over_screen()
+            return True
+        return False
+
+    def game_over_screen(self):
+        parent_root = self.parent.winfo_toplevel()
+        game_over_root = tk.Toplevel()
+        game_over_root.resizable(0, 0)
+        game_over_root.wm_attributes('-type', 'splash')
+        border_colour = '#'+''.join('{:02X}'.format(c) for c in self.font_colour)
+        bg_colour = '#'+''.join('{:02X}'.format(c) for c in self.bg_colour)
+        self.change_player()
+        match self.game_state:
+            case GameState.CHECKMATE:
+                text = f'Checkmate: {self.current_player.name.title()} wins'
+            case GameState.STALEMATE:
+                text = 'Draw: Stalemate'
+        game_over_frame = tk.Frame(
+            game_over_root,
+            bg=bg_colour,
+            highlightthickness=self.BORDER_WIDTH,
+            highlightbackground=border_colour
+        )
+        game_over_text = self._make_text_label(game_over_frame, text, 20)
+        play_again_text = self._make_text_label(game_over_frame, 'Play Again?', 18)
+        play_again_text_height = int(parent_root.call(play_again_text.cget('image'), 'cget', '-height'))
+        play_again_text_width = int(parent_root.call(play_again_text.cget('image'), 'cget', '-width'))
+        play_again_button = tk.Button(
+            game_over_frame,
+            bg=bg_colour,
+            height=play_again_text_height+8,
+            width=play_again_text_width+8,
+            image=play_again_text.cget('image'),
+            bd=0,
+            highlightthickness=self.BORDER_WIDTH,
+            highlightbackground=border_colour
+        )
+
+        def sync_windows(event=None):
+            game_over_root_x = parent_root.winfo_x() + (parent_root.winfo_width() - game_over_root.winfo_width())//2
+            game_over_root_y = parent_root.winfo_y() + (parent_root.winfo_height() - game_over_root.winfo_height())//2
+            game_over_root.geometry(f'+{game_over_root_x}+{game_over_root_y}')
+
+        def play_again_callback():
+            parent_root.unbind('<Configure>')
+            game_over_root.grab_release()
+            game_over_root.destroy()
+            self.reset_classic_setup()
+
+        play_again_button.config(command=play_again_callback)
+        game_over_text.grid(row=0, column=0, pady=10, padx=10)
+        play_again_button.grid(row=1, column=0, pady=10, padx=10)
+        game_over_frame.grid(row=0, column=0)
+        game_over_root.wait_visibility()
+        game_over_root.grab_set()
+        game_over_root.transient(parent_root)
+        sync_windows()
+        parent_root.bind('<Configure>', sync_windows)
 
 
 if __name__ == '__main__':
     root = tk.Tk()
     root.resizable(0, 0)
     root.title('Chess')
-    chess_frame = tk.Frame(root, height=Square.SQUARE_SIZE*Chess.RANKS, width=Square.SQUARE_SIZE*Chess.FILES)
-    chess_frame.grid_propagate(False)
+    chess_frame = tk.Frame(root)
     chess = Chess(chess_frame, 'assets/chess/squares.png', False)
-    chess.set_up_board()
-    chess.create_classic_setup()
     # Debug, remember to remove
     # root.bind('<Return>', lambda *_: chess.change_player())
     # root.bind('<Control-r>', lambda *_: chess.reset_classic_setup())
