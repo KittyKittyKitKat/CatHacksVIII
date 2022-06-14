@@ -19,6 +19,10 @@ class PlacementType(Enum):
     CLASSIC = auto()
 
 
+class GoalType(Enum):
+    FIXED = auto()
+    VARIABLE = auto()
+
 class TetriminoImage(Enum):
     I = Image.open('assets/tetris/cyan.png')
     J = Image.open('assets/tetris/blue.png')
@@ -248,11 +252,13 @@ class Tetris:
     SKYLINE_VISIBILITY = 8
     MAX_LEVEL = 15
 
-    def __init__(self, parent, ui_on_right, ghost_piece, placement_mode, key_mapping):
+    def __init__(self, parent, ui_on_right, ghost_piece, placement_mode, starting_level, goal_type, key_mapping):
         self.parent = parent
         self.ui_on_right = ui_on_right
         self.ghost_piece = ghost_piece
         self.placement_mode = placement_mode
+        self.starting_level = starting_level
+        self.goal_type = goal_type
         self.key_mapping = key_mapping
         self.parent_root = parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
@@ -263,7 +269,8 @@ class Tetris:
         self.texts = {}
         self.lock_time = 500
         self.falling_lowest = 0
-        self.level = 1
+        self.level = self.starting_level
+        self.score = 0
         self.play_id = None
         self.lock_moves = tk.IntVar(master=self.parent, value=15)
         self.lock_movement = False
@@ -502,10 +509,12 @@ class Tetris:
     def get_tetrimino_spawn_pos(self, tetrimino_type):
         tetrimino_width = len(tetrimino_type.value[0])
         start_col = (Tetris.COLUMNS - tetrimino_width) // 2
-        spawn_pos = (start_col, Tetris.ROWS-2)
+        spawn_pos = (start_col, Tetris.ROWS-3)
         return spawn_pos
 
     def spawn_tetrimino(self, tetrimino_type):
+        if self.game_over:
+            return
         spawn_pos = self.get_tetrimino_spawn_pos(tetrimino_type)
         self.falling_lowest = spawn_pos[1]
         self.lock_movement = False
@@ -513,7 +522,7 @@ class Tetris:
         overlap = self.place_tetrimino(self.falling_tetrimino, self.playfield)
         if overlap:
             self.game_over = True
-            overlap = self.place_tetrimino(self.falling_tetrimino, self.playfield, override=True)
+            self.place_tetrimino(self.falling_tetrimino, self.playfield, override=True)
         self.ghost_tetrimino = Tetrimino(tetrimino_type, spawn_pos, True)
         self.show_ghost_tetrimino()
         self.show_next_tetriminos()
@@ -543,13 +552,21 @@ class Tetris:
             self.lock_tetrimino()
 
     def lock_tetrimino(self):
-        self.lock_id = None
+        if self.lock_id is not None:
+            self.parent.after_cancel(self.lock_id)
+            self.lock_id = None
         edges_success = self.check_edge_collision(self.falling_tetrimino, dr=1)
         minos_success = self.check_mino_collision(self.falling_tetrimino, dr=1)
         if edges_success and minos_success:
             return
         self.lock_moves.set(15)
         self.falling_tetrimino.place()
+        visible = False
+        for row, *_ in self.falling_tetrimino.get_mino_coords():
+            if row >= self.BUFFER_ROWS:
+                visible = True
+        if not visible:
+            self.game_over = True
         self.clear_lines()
         self.has_held = False
         if self.queued_garbage:
@@ -701,11 +718,12 @@ class Tetris:
                     self.lock_moves.set(self.lock_moves.get() - 1)
 
     def add_garbage(self):
-        for row in range(Tetris.BUFFER_ROWS, Tetris.ROWS+Tetris.BUFFER_ROWS):
+        for row in range(Tetris.ROWS+Tetris.BUFFER_ROWS):
             for col in range(Tetris.COLUMNS):
                 square = self.playfield[row][col]
                 if (mino := square.mino) is not None:
                     if row-self.queued_garbage < 0:
+                        self.game_over = True
                         break
                     square_above = self.playfield[row-self.queued_garbage][col]
                     square.remove_mino()
@@ -747,6 +765,15 @@ class Tetris:
                         if square_below.mino is None:
                             square.remove_mino()
                             square_below.place_mino(mino)
+
+    def get_next_goal(self):
+        if self.goal_type is GoalType.VARIABLE:
+            return 5 * self.level
+        elif self.goal_type is GoalType.FIXED:
+            if self.game_started:
+                return 10
+            else:
+                return 10 * self.level
 
     def start_up(self):
         start_up_root = tk.Toplevel()
@@ -799,7 +826,8 @@ class Tetris:
         if self.game_over:
             if self.lock_id is not None:
                 self.parent.after_cancel(self.lock_id)
-            self.parent.after_cancel(self.play_id)
+            if self.play_id is not None:
+                self.parent.after_cancel(self.play_id)
             self.game_lost()
             return
 
@@ -856,7 +884,8 @@ class Tetris:
             for square in row:
                 square.remove_mino()
         self.falling_lowest = 0
-        self.level = 1
+        self.level = self.starting_level
+        self.score = 0
         self.play_id = None
         self.lock_moves.set(15)
         self.lock_movement = False
@@ -894,9 +923,11 @@ if __name__ == '__main__':
     }
     tetris = Tetris(
         parent=tetris_frame,
-        ui_on_right=False,
+        ui_on_right=True,
         ghost_piece = True,
-        placement_mode=PlacementType.CLASSIC,
+        placement_mode=PlacementType.EXTENDED,
+        starting_level=1,
+        goal_type=GoalType.VARIABLE,
         key_mapping=keys
     )
     tetris_frame.grid(row=0, column=0)
