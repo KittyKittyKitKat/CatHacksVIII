@@ -4,14 +4,17 @@ from enum import Enum, auto
 from random import shuffle, randint
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
-def transpose(matrix):
-    return [[matrix[j][i] for j in range(len(matrix))] for i in range(len(matrix[0]))]
 
-def reverse_rows(matrix):
-    return matrix[::-1]
+def rotate_matrix(matrix, clockwise):
+    transpose = [
+        [matrix[j][i] for j in range(len(matrix))]
+        for i in range(len(matrix[0]))
+    ]
+    if clockwise:
+        return [row[::-1] for row in transpose]
+    else:
+        return transpose[::-1]
 
-def reverse_columns(matrix):
-    return [row[::-1] for row in matrix]
 
 class PlacementType(Enum):
     EXTENDED = auto()
@@ -22,6 +25,7 @@ class PlacementType(Enum):
 class GoalType(Enum):
     FIXED = auto()
     VARIABLE = auto()
+
 
 class TetriminoImage(Enum):
     I = Image.open('assets/tetris/cyan.png')
@@ -60,34 +64,34 @@ class TetriminoType(Enum):
 
 
 class RotationState(Enum):
-    SPAWN = auto()
-    CLOCKWISE = auto()
-    FLIPPED = auto()
-    COUNTERCLOCKWISE = auto()
+    NORTH = auto()
+    EAST = auto()
+    SOUTH = auto()
+    WEST = auto()
 
     @classmethod
     def get_next_rotation_state(cls, starting_rotation, clockwise):
         new_rotation_state = None
         if clockwise:
             match starting_rotation:
-                case RotationState.SPAWN:
-                    new_rotation_state = RotationState.CLOCKWISE
-                case RotationState.CLOCKWISE:
-                    new_rotation_state = RotationState.FLIPPED
-                case RotationState.FLIPPED:
-                    new_rotation_state = RotationState.COUNTERCLOCKWISE
-                case RotationState.COUNTERCLOCKWISE:
-                    new_rotation_state = RotationState.SPAWN
+                case RotationState.NORTH:
+                    new_rotation_state = RotationState.EAST
+                case RotationState.EAST:
+                    new_rotation_state = RotationState.SOUTH
+                case RotationState.SOUTH:
+                    new_rotation_state = RotationState.WEST
+                case RotationState.WEST:
+                    new_rotation_state = RotationState.NORTH
         else:
             match starting_rotation:
-                case RotationState.SPAWN:
-                    new_rotation_state = RotationState.COUNTERCLOCKWISE
-                case RotationState.CLOCKWISE:
-                    new_rotation_state = RotationState.SPAWN
-                case RotationState.FLIPPED:
-                    new_rotation_state = RotationState.CLOCKWISE
-                case RotationState.COUNTERCLOCKWISE:
-                    new_rotation_state = RotationState.FLIPPED
+                case RotationState.NORTH:
+                    new_rotation_state = RotationState.WEST
+                case RotationState.EAST:
+                    new_rotation_state = RotationState.NORTH
+                case RotationState.SOUTH:
+                    new_rotation_state = RotationState.EAST
+                case RotationState.WEST:
+                    new_rotation_state = RotationState.SOUTH
         return new_rotation_state
 
 
@@ -103,7 +107,7 @@ class Tetrimino:
         self.upper_left_coords = upper_left_coords
         self.ghost = ghost
         self.placed = False
-        self.rotation_state = RotationState.SPAWN
+        self.rotation_state = RotationState.NORTH
         if self.ghost:
             mino_image = TetriminoImage.GHOST.value
         else:
@@ -120,42 +124,42 @@ class Tetrimino:
         current_rotation = self.rotation_state
         kicks = []
         match (current_rotation, next_rotation):
-            case RotationState.SPAWN, RotationState.CLOCKWISE:
+            case RotationState.NORTH, RotationState.EAST:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(-2, 0), (1, 0), (-2, 1), (1, -2)]
                 else:
                     kicks =  [(-1, 0), (-1, -1), (0, 2), (-1, 2)]
-            case RotationState.CLOCKWISE, RotationState.SPAWN:
+            case RotationState.EAST, RotationState.NORTH:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(2, 0), (-1, 0), (2, -1), (-1, 2)]
                 else:
                     kicks =  [(1, 0), (1, 1), (0, -2), (1, -2)]
-            case RotationState.CLOCKWISE, RotationState.FLIPPED:
+            case RotationState.EAST, RotationState.SOUTH:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(-1, 0), (2, 0), (-1, -2), (2, 1)]
                 else:
                     kicks =  [(1, 0), (1, 1), (0, -2), (1, -2)]
-            case RotationState.FLIPPED, RotationState.CLOCKWISE:
+            case RotationState.SOUTH, RotationState.EAST:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(1, 0), (-2, 0), (1, 2), (-2, -1)]
                 else:
                     kicks =  [(-1, 0), (-1, -1), (0, 2), (-1, 2)]
-            case RotationState.FLIPPED, RotationState.COUNTERCLOCKWISE:
+            case RotationState.SOUTH, RotationState.WEST:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(2, 0), (-1, 0), (2, -1), (-1, 2)]
                 else:
                     kicks =  [(1, 0), (1, -1), (0, 2), (1, 2)]
-            case RotationState.COUNTERCLOCKWISE, RotationState.FLIPPED:
+            case RotationState.WEST, RotationState.SOUTH:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(-2, 0), (1, 0), (-2, 1), (1, -2)]
                 else:
                     kicks =  [(-1, 0), (-1, 1), (0, -2), (-1, -2)]
-            case RotationState.COUNTERCLOCKWISE, RotationState.SPAWN:
+            case RotationState.WEST, RotationState.NORTH:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(1, 0), (-2, 0), (1, 2), (-2, -1)]
                 else:
                     kicks =  [(-1, 0), (-1, 1), (0, -2), (-1, -2)]
-            case RotationState.SPAWN, RotationState.COUNTERCLOCKWISE:
+            case RotationState.NORTH, RotationState.WEST:
                 if self.piece_type is TetriminoType.I:
                     kicks =  [(-1, 0), (2, 0), (-1, -2), (2, 1)]
                 else:
@@ -176,6 +180,18 @@ class Tetrimino:
             y +=1
         return mino_coords
 
+    def get_corner_coords(self):
+        size = len(self.piece_type.value)
+        y, x = self.upper_left_coords
+        lx, ly = x + size - 1, y + size - 1
+        coords = [
+            [(x, y),
+            (x, ly)],
+            [(lx, y),
+            (lx, ly)]
+        ]
+        return coords
+
     def place(self):
         self.placed = True
         for row in self.minos:
@@ -184,10 +200,7 @@ class Tetrimino:
                     mino.placed = True
 
     def rotate(self, clockwise):
-        if clockwise:
-            self.minos = reverse_columns(transpose(self.minos))
-        else:
-            self.minos = reverse_rows(transpose(self.minos))
+        self.minos = rotate_matrix(self.minos, clockwise)
         self.rotation_state = RotationState.get_next_rotation_state(self.rotation_state, clockwise)
 
     def move_horizontally(self, dir, amount):
@@ -260,7 +273,7 @@ class Tetris:
         self.starting_level = starting_level
         self.goal_type = goal_type
         self.key_mapping = key_mapping
-        self.parent_root = parent.winfo_toplevel()
+        self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
         self.next_frame = tk.Frame(self.parent)
@@ -278,6 +291,7 @@ class Tetris:
         self.auto_repeat = ''
         self.key_time = 0
         self.speed_factor = 1
+        self.rotation_point = None
         self.falling_tetrimino = None
         self.held_tetrimino = None
         self.ghost_tetrimino = None
@@ -495,15 +509,15 @@ class Tetris:
             self.ghost_tetrimino.move_vertically(1, 1)
         self.place_tetrimino(self.ghost_tetrimino, self.playfield)
 
-    def generate_tetriminos(self):
+    def generate_seven_bag(self):
         if not self.seven_bag:
             self.seven_bag = [t_type for t_type in TetriminoType]
             shuffle(self.seven_bag)
-        for i in range(Tetris.NEXT_PIECES+1-len(self.next_tetriminos)):
+        for _ in range(Tetris.NEXT_PIECES+1-len(self.next_tetriminos)):
             self.next_tetriminos.append(self.seven_bag.pop(0))
 
     def random_tetrimino(self):
-        self.generate_tetriminos()
+        self.generate_seven_bag()
         return self.next_tetriminos.pop(0)
 
     def get_tetrimino_spawn_pos(self, tetrimino_type):
@@ -559,11 +573,12 @@ class Tetris:
         minos_success = self.check_mino_collision(self.falling_tetrimino, dr=1)
         if edges_success and minos_success:
             return
+        self.detect_t_spin()
         self.lock_moves.set(15)
         self.falling_tetrimino.place()
         visible = False
         for row, *_ in self.falling_tetrimino.get_mino_coords():
-            if row >= self.BUFFER_ROWS:
+            if row >= Tetris.BUFFER_ROWS:
                 visible = True
         if not visible:
             self.game_over = True
@@ -633,6 +648,7 @@ class Tetris:
             if self.placement_mode is PlacementType.CLASSIC and self.lock_id is not None:
                 self.parent.after_cancel(self.lock_id)
                 self.lock_id = None
+            self.rotation_point = None
         else:
             if self.lock_id is not None:
                 self.parent.after_cancel(self.lock_id)
@@ -646,6 +662,7 @@ class Tetris:
                 self.check_mino_collision(self.falling_tetrimino, dr=1)
         ):
             self.tetrimino_fall()
+        self.rotation_point = None
         self.lock_tetrimino()
 
     def tetrimino_left(self):
@@ -665,6 +682,7 @@ class Tetris:
                 self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
                 if self.placement_mode is PlacementType.EXTENDED:
                     self.lock_moves.set(self.lock_moves.get() - 1)
+            self.rotation_point = None
 
     def tetrimino_right(self):
         if self.falling_tetrimino is None:
@@ -683,6 +701,7 @@ class Tetris:
                 self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
                 if self.placement_mode is PlacementType.EXTENDED:
                     self.lock_moves.set(self.lock_moves.get() - 1)
+            self.rotation_point = None
 
     def tetrimino_rotate(self, clockwise):
         if self.falling_tetrimino is None:
@@ -692,14 +711,17 @@ class Tetris:
         rotation_successful = False
         kick_used = None
         self.falling_tetrimino.rotate(clockwise)
-        for kick_x, kick_y in kicks:
+        for kick_num, kick in enumerate(kicks):
+            kick_x, kick_y = kick
             if (self.check_mino_collision(self.falling_tetrimino, dr=kick_y, dc=kick_x) and
                     self.check_edge_collision(self.falling_tetrimino, dr=kick_y, dc=kick_x)):
                 rotation_successful = True
                 kick_used = kick_x, kick_y
+                self.rotation_point = kick_num
                 break
         self.falling_tetrimino.rotate(not clockwise)
         if rotation_successful:
+            self.rotation_point += 1
             self.remove_tetrimino(self.ghost_tetrimino, self.playfield)
             self.remove_tetrimino(self.falling_tetrimino, self.playfield)
             self.falling_tetrimino.rotate(clockwise)
@@ -716,6 +738,8 @@ class Tetris:
                 self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
                 if self.placement_mode is PlacementType.EXTENDED:
                     self.lock_moves.set(self.lock_moves.get() - 1)
+        else:
+            self.rotation_point = None
 
     def add_garbage(self):
         for row in range(Tetris.ROWS+Tetris.BUFFER_ROWS):
@@ -765,6 +789,40 @@ class Tetris:
                         if square_below.mino is None:
                             square.remove_mino()
                             square_below.place_mino(mino)
+
+    def detect_t_spin(self):
+        if self.falling_tetrimino.piece_type is not TetriminoType.T:
+            return
+        if self.rotation_point is None:
+            return
+        corners = self.falling_tetrimino.get_corner_coords()
+        if self.falling_tetrimino.rotation_state is RotationState.EAST:
+            corners = rotate_matrix(corners, False)
+        if self.falling_tetrimino.rotation_state is RotationState.SOUTH:
+            corners = rotate_matrix(corners, True)
+            corners = rotate_matrix(corners, True)
+        if self.falling_tetrimino.rotation_state is RotationState.WEST:
+            corners = rotate_matrix(corners, True)
+        corners = [coord for row in corners for coord in row]
+        minos = []
+        for row, col in corners:
+            mino = Mino(TetriminoImage.GARBAGE.value, True)
+            if row in range(Tetris.ROWS+Tetris.BUFFER_ROWS) and col in range(Tetris.COLUMNS):
+                mino = self.playfield[row][col].mino
+            minos.append(mino)
+        minos = dict(zip('abcd', minos))
+        t_spin_found = False
+        mini_t_spin_found = False
+        if minos['a'] is not None and minos['b'] is not None:
+            if minos['c'] is not None or minos['d'] is not None:
+                t_spin_found = True
+        if minos['c'] is not None and minos['d'] is not None:
+            if minos['a'] is not None or minos['b'] is not None:
+                mini_t_spin_found = True
+        if self.rotation_point == 5:
+            t_spin_found = True
+            mini_t_spin_found = False
+        print(f'T-Spin: {t_spin_found}; Mini T-Spin: {mini_t_spin_found}')
 
     def get_next_goal(self):
         if self.goal_type is GoalType.VARIABLE:
@@ -819,7 +877,7 @@ class Tetris:
 
     def play_game(self):
         if not self.game_started:
-            self.generate_tetriminos()
+            self.generate_seven_bag()
             self.spawn_tetrimino(self.random_tetrimino())
             self.game_started = True
 
@@ -893,6 +951,7 @@ class Tetris:
         self.auto_repeat = ''
         self.key_time = 0
         self.speed_factor = 1
+        self.rotation_point = None
         self.falling_tetrimino = None
         self.held_tetrimino = None
         self.ghost_tetrimino = None
