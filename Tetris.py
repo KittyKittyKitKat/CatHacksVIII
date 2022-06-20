@@ -279,11 +279,13 @@ class Tetris:
         self.next_frame = tk.Frame(self.parent)
         self.hold_frame = tk.Frame(self.parent)
         self.score_frame = tk.Frame(self.parent)
+        self.score_label = tk.Label(self.score_frame)
         self.texts = {}
         self.lock_time = 500
         self.falling_lowest = 0
         self.level = self.starting_level
         self.score = 0
+        self.back_to_back = False
         self.play_id = None
         self.lock_moves = tk.IntVar(master=self.parent, value=15)
         self.lock_movement = False
@@ -311,6 +313,7 @@ class Tetris:
         self._set_up_hold_area()
         self._set_up_score_area()
         self._set_up_keybindings()
+        self.show_score()
         self.lock_trace_id = self.lock_moves.trace_add('write', self._lock_trace)
         self.start_up()
 
@@ -349,11 +352,15 @@ class Tetris:
             highlightthickness=Tetris.BORDER_WIDTH
         )
         self.score_frame.config(
-            bg='red',
+            bg='black',
             width=Square.SQUARE_SIZE*Tetris.COLUMNS+2*Tetris.BORDER_WIDTH,
             height=Square.SQUARE_SIZE*(Tetris.TOTAL_HEIGHT-Tetris.ROWS),
             highlightbackground='white',
             highlightthickness=Tetris.BORDER_WIDTH
+        )
+        self.score_label.config(
+            bg='black',
+            bd=0
         )
         self.parent.grid_propagate(False)
         self.game_frame.grid_propagate(False)
@@ -403,8 +410,9 @@ class Tetris:
         hold_label.grid(row=0, column=int(self.ui_on_right))
 
     def _set_up_score_area(self):
-        score_label = self._make_text_label(self.score_frame, 'SCORE', Tetris.UI_FONT_SIZE)
-        score_label.grid(row=0, column=0)
+        score_text = self._make_text_label(self.score_frame, 'SCORE: ', Tetris.UI_FONT_SIZE)
+        score_text.grid(row=0, column=0)
+        self.score_label.grid(row=0, column=1)
         self.score_frame.grid(row=4, column=int(not self.ui_on_right))
 
     def _set_up_keybindings(self):
@@ -499,6 +507,14 @@ class Tetris:
         tetrimino = Tetrimino(self.held_tetrimino.piece_type, (col, row))
         self.place_tetrimino(tetrimino, self.hold_area)
 
+    def show_score(self):
+        score_text = self._make_text_label(
+            self.score_frame,
+            str(self.score),
+            Tetris.UI_FONT_SIZE
+        )['image']
+        self.score_label.config(image=score_text)
+
     def show_ghost_tetrimino(self):
         if not self.ghost_piece:
             return
@@ -573,7 +589,7 @@ class Tetris:
         minos_success = self.check_mino_collision(self.falling_tetrimino, dr=1)
         if edges_success and minos_success:
             return
-        self.detect_t_spin()
+        t_spin, mini_t_spin = self.detect_t_spin()
         self.lock_moves.set(15)
         self.falling_tetrimino.place()
         visible = False
@@ -582,10 +598,11 @@ class Tetris:
                 visible = True
         if not visible:
             self.game_over = True
-        self.clear_lines()
+        lines_cleared = self.clear_lines()
         self.has_held = False
         if self.queued_garbage:
             self.add_garbage()
+        self.update_score(lines_cleared, t_spin, mini_t_spin)
         self.spawn_tetrimino(self.random_tetrimino())
 
     def place_tetrimino(self, tetrimino, area, override=False):
@@ -631,7 +648,7 @@ class Tetris:
 
     def tetrimino_fall(self):
         if self.falling_tetrimino is None:
-            return
+            return False
         edges_success = self.check_edge_collision(self.falling_tetrimino, dr=1)
         minos_success = self.check_mino_collision(self.falling_tetrimino, dr=1)
         if edges_success and minos_success:
@@ -649,20 +666,26 @@ class Tetris:
                 self.parent.after_cancel(self.lock_id)
                 self.lock_id = None
             self.rotation_point = None
+            return True
         else:
             if self.lock_id is not None:
                 self.parent.after_cancel(self.lock_id)
             self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
+            return False
 
     def tetrimino_drop(self):
         if self.falling_tetrimino is None:
             return
+        lines_moved = 0
         while (
                 self.check_edge_collision(self.falling_tetrimino, dr=1) and
                 self.check_mino_collision(self.falling_tetrimino, dr=1)
         ):
             self.tetrimino_fall()
+            lines_moved += 1
         self.rotation_point = None
+        self.score += 2 * lines_moved
+        self.show_score()
         self.lock_tetrimino()
 
     def tetrimino_left(self):
@@ -763,11 +786,13 @@ class Tetris:
 
     def clear_lines(self):
         if self.game_over:
-            return
+            return 0
         runs = []
         run = 0
         bottommost_cleared = 0
         for row, line in enumerate(self.playfield):
+            if not any(s.mino for s in line):
+                continue
             for square in line:
                 if square.mino is None:
                     runs.append(run)
@@ -789,12 +814,13 @@ class Tetris:
                         if square_below.mino is None:
                             square.remove_mino()
                             square_below.place_mino(mino)
+        return sum(runs)
 
     def detect_t_spin(self):
         if self.falling_tetrimino.piece_type is not TetriminoType.T:
-            return
+            return False, False
         if self.rotation_point is None:
-            return
+            return False, False
         corners = self.falling_tetrimino.get_corner_coords()
         if self.falling_tetrimino.rotation_state is RotationState.EAST:
             corners = rotate_matrix(corners, False)
@@ -822,7 +848,53 @@ class Tetris:
         if self.rotation_point == 5:
             t_spin_found = True
             mini_t_spin_found = False
-        print(f'T-Spin: {t_spin_found}; Mini T-Spin: {mini_t_spin_found}')
+        return t_spin_found, mini_t_spin_found
+
+    def update_score(self, lines, t_spin, mini_t_spin):
+        action_total = 0
+        if mini_t_spin:
+            if lines == 0:
+                print('Mini T-Spin')
+                action_total = 100 * self.level
+            elif lines == 1:
+                print('Mini T-Spin Single')
+                action_total = 200 * self.level
+        elif t_spin:
+            if lines == 0:
+                print('T-Spin')
+                action_total = 400 * self.level
+            elif lines == 1:
+                print('T-Spin Single')
+                action_total = 800 * self.level
+            elif lines == 2:
+                print('T-Spin Double')
+                action_total = 1200 * self.level
+            elif lines == 3:
+                print('T-Spin Triple')
+                action_total = 1600 * self.level
+        else:
+            if lines == 1:
+                print('Single')
+                action_total = 100 * self.level
+            elif lines == 2:
+                print('Double')
+                action_total = 300 * self.level
+            elif lines == 3:
+                print('Triple')
+                action_total = 500 * self.level
+            elif lines == 4:
+                print('Tetris')
+                action_total = 800 * self.level
+        action_total += .5 * action_total * self.back_to_back
+        if lines == 4:
+            self.back_to_back = True
+        elif lines > 0:
+            if t_spin or mini_t_spin:
+                self.back_to_back = True
+            else:
+                self.back_to_back == False
+        self.score += int(action_total)
+        self.show_score()
 
     def get_next_goal(self):
         if self.goal_type is GoalType.VARIABLE:
@@ -889,7 +961,10 @@ class Tetris:
             self.game_lost()
             return
 
-        self.tetrimino_fall()
+        fell = self.tetrimino_fall()
+        if self.speed_factor != 1 and fell:
+            self.score += 1
+            self.show_score()
         game_speed = int(pow((0.8 - ((self.level - 1) * 0.007)), self.level-1) * 1000) * self.speed_factor
         self.play_id = self.parent.after(int(game_speed), self.play_game)
 
@@ -944,6 +1019,7 @@ class Tetris:
         self.falling_lowest = 0
         self.level = self.starting_level
         self.score = 0
+        self.back_to_back = False
         self.play_id = None
         self.lock_moves.set(15)
         self.lock_movement = False
@@ -963,6 +1039,7 @@ class Tetris:
         self.seven_bag = []
         self.show_next_tetriminos()
         self.show_held_tetrimino()
+        self.show_score()
         self.start_up()
 
 
