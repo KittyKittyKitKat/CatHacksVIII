@@ -234,7 +234,7 @@ class Square(tk.Label):
         self.mino = None
         self.background_image = background_image
         self.tk_image = ImageTk.PhotoImage(self.background_image)
-        super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
+        super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bg='black', bd=0, image=self.tk_image)
 
     def place_mino(self, mino):
         self.mino = mino
@@ -265,7 +265,7 @@ class Tetris:
     SKYLINE_VISIBILITY = 8
     MAX_LEVEL = 15
 
-    def __init__(self, parent, ui_on_right, ghost_piece, placement_mode, starting_level, goal_type, key_mapping):
+    def __init__(self, parent, ui_on_right, ghost_piece, placement_mode, starting_level, goal_type, key_mapping, allow_pausing):
         self.parent = parent
         self.ui_on_right = ui_on_right
         self.ghost_piece = ghost_piece
@@ -273,6 +273,7 @@ class Tetris:
         self.starting_level = starting_level
         self.goal_type = goal_type
         self.key_mapping = key_mapping
+        self.allow_pausing = allow_pausing
         self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
@@ -283,6 +284,7 @@ class Tetris:
         self.lines_label = tk.Label(self.score_frame)
         self.level_label = tk.Label(self.score_frame)
         self.goal_label = tk.Label(self.score_frame)
+        self.pause_button = tk.Button(self.score_frame)
         self.texts = {}
         self.lock_time = 500
         self.game_started = False
@@ -303,6 +305,7 @@ class Tetris:
         self.falling_tetrimino = None
         self.held_tetrimino = None
         self.ghost_tetrimino = None
+        self.game_paused = False
         self.game_over = False
         self.has_held = False
         self.queued_garbage = 0
@@ -382,6 +385,12 @@ class Tetris:
             bg='black',
             bd=0
         )
+        self.pause_button.config(
+            bg='black',
+            bd=0,
+            highlightthickness=Tetris.BORDER_WIDTH,
+            highlightbackground='white'
+        )
         self.parent.grid_propagate(False)
         self.game_frame.grid_propagate(False)
         self.next_frame.grid_propagate(False)
@@ -394,6 +403,7 @@ class Tetris:
         size = self._make_text_label(None, '0'*7, Tetris.UI_FONT_SIZE)
         size = int(self.parent_root.call(size.cget('image'), 'cget', '-width'))
         self.score_frame.columnconfigure(1, minsize=size)
+        self.score_frame.columnconfigure(2, weight=1)
         self.game_frame.rowconfigure(0, weight=1)
         self.ui_frame.grid(row=0, column=int(self.ui_on_right), rowspan=4)
 
@@ -466,11 +476,16 @@ class Tetris:
             padx=Tetris.UI_INNER_PADDING,
             pady=Tetris.UI_INNER_PADDING
         )
-
+        pause_image = Image.open('assets/tetris/pause.png')
+        self.texts['PAUSE'] = ImageTk.PhotoImage(pause_image)
+        self.pause_button.config(image=self.texts['PAUSE'], command=self.pause_game)
         self.score_label.grid(row=0, column=1, sticky=tk.W)
         self.lines_label.grid(row=1, column=1, sticky=tk.W)
         self.level_label.grid(row=2, column=1, sticky=tk.W)
         self.goal_label.grid(row=3, column=1, sticky=tk.W)
+
+        if self.allow_pausing:
+            self.pause_button.grid(row=0, column=3, sticky=tk.E, rowspan=2, padx=Tetris.UI_INNER_PADDING)
 
         self.score_frame.grid(row=4, column=int(not self.ui_on_right))
 
@@ -492,6 +507,29 @@ class Tetris:
         self.parent.bind('<KeyPress>', self._keypress_dispatch)
         self.parent.bind('<KeyRelease>', self._keyrelease_dispatch)
         self.parent.focus_set()
+
+    def _uncover_playfield(self):
+        for row in range(Tetris.ROWS+Tetris.BUFFER_ROWS):
+            for col in range(Tetris.COLUMNS):
+                square = self.playfield[row][col]
+
+                if row >= Tetris.BUFFER_ROWS-1:
+                    if not square.winfo_ismapped():
+                        square.grid(row=row-Tetris.ROWS+1, column=col, sticky=tk.N)
+
+    def _uncover_next_area(self):
+        for row in range(Tetris.NEXT_ROWS):
+            for col in range(Tetris.UI_COLUMNS):
+                square = self.next_area[row][col]
+                if not square.winfo_ismapped():
+                    square.grid(row=row, column=col+1, sticky=tk.W)
+
+    def _uncover_hold_area(self):
+        for row in range(Tetris.HOLD_ROWS):
+            for col in range(Tetris.UI_COLUMNS):
+                square = self.hold_area[row][col]
+                if not square.winfo_ismapped():
+                    square.grid(row=row, column=col+1, sticky=tk.W)
 
     def _keypress_dispatch(self, event):
         if self.game_over:
@@ -539,7 +577,7 @@ class Tetris:
             self.texts[text] = text_tk
         else:
             text_tk = self.texts[text]
-        text_label = tk.Label(parent, bd=0, image=text_tk)
+        text_label = tk.Label(parent, bg='black', bd=0, image=text_tk)
         return text_label
 
     def show_next_tetriminos(self):
@@ -1091,6 +1129,26 @@ class Tetris:
         game_speed = int(pow((0.8 - ((self.level - 1) * 0.007)), self.level-1) * 1000) * self.speed_factor
         self.play_id = self.parent.after(int(game_speed), self.play_game)
 
+    def pause_game(self):
+        if not self.game_started:
+            return
+        if not self.game_paused:
+            if self.play_id is not None:
+                self.parent.after_cancel(self.play_id)
+                self.play_id = None
+            for child in self.game_frame.grid_slaves():
+                child.grid_forget()
+            for child in self.next_frame.grid_slaves():
+                child.grid_forget()
+            for child in self.hold_frame.grid_slaves():
+                child.grid_forget()
+        else:
+            self._uncover_playfield()
+            self._uncover_next_area()
+            self._uncover_hold_area()
+            self.play_game()
+        self.game_paused = not self.game_paused
+
     def game_lost(self):
         game_over_root = tk.Toplevel()
         game_over_root.resizable(0, 0)
@@ -1157,6 +1215,7 @@ class Tetris:
         self.falling_tetrimino = None
         self.held_tetrimino = None
         self.ghost_tetrimino = None
+        self.game_paused = False
         self.game_over = False
         self.has_held = False
         self.queued_garbage = 0
@@ -1192,7 +1251,8 @@ if __name__ == '__main__':
         placement_mode=PlacementType.EXTENDED,
         starting_level=1,
         goal_type=GoalType.VARIABLE,
-        key_mapping=keys
+        key_mapping=keys,
+        allow_pausing=True
     )
     tetris_frame.grid(row=0, column=0)
     root.mainloop()
