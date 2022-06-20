@@ -1136,16 +1136,26 @@ class Tetris:
             if self.play_id is not None:
                 self.parent.after_cancel(self.play_id)
                 self.play_id = None
+
             for child in self.game_frame.grid_slaves():
                 child.grid_forget()
             for child in self.next_frame.grid_slaves():
                 child.grid_forget()
             for child in self.hold_frame.grid_slaves():
                 child.grid_forget()
+
+            paused_text = self._make_text_label(self.parent, 'PAUSED', Tetris.UI_FONT_SIZE)
+            paused_text_height = int(self.parent_root.call(paused_text.cget('image'), 'cget', '-height'))
+            paused_text_width = int(self.parent_root.call(paused_text.cget('image'), 'cget', '-width'))
+            paused_text_x = self.game_frame.winfo_x() + (self.game_frame.winfo_width() - paused_text_width)//2
+            paused_text_y = self.game_frame.winfo_y() + (self.game_frame.winfo_height() - paused_text_height)//2
+            paused_text.place(x=paused_text_x, y=paused_text_y)
         else:
             self._uncover_playfield()
             self._uncover_next_area()
             self._uncover_hold_area()
+            for child in self.parent.place_slaves():
+                child.place_forget()
             self.play_game()
         self.game_paused = not self.game_paused
 
