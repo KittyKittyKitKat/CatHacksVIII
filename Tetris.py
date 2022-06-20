@@ -280,12 +280,18 @@ class Tetris:
         self.hold_frame = tk.Frame(self.parent)
         self.score_frame = tk.Frame(self.parent)
         self.score_label = tk.Label(self.score_frame)
+        self.lines_label = tk.Label(self.score_frame)
+        self.level_label = tk.Label(self.score_frame)
+        self.goal_label = tk.Label(self.score_frame)
         self.texts = {}
         self.lock_time = 500
+        self.game_started = False
         self.falling_lowest = 0
         self.level = self.starting_level
         self.score = 0
         self.back_to_back = False
+        self.lines_cleared = 0
+        self.goal = self.get_next_goal()
         self.play_id = None
         self.lock_moves = tk.IntVar(master=self.parent, value=15)
         self.lock_movement = False
@@ -297,7 +303,6 @@ class Tetris:
         self.falling_tetrimino = None
         self.held_tetrimino = None
         self.ghost_tetrimino = None
-        self.game_started = False
         self.game_over = False
         self.has_held = False
         self.queued_garbage = 0
@@ -314,6 +319,9 @@ class Tetris:
         self._set_up_score_area()
         self._set_up_keybindings()
         self.show_score()
+        self.show_lines()
+        self.show_level()
+        self.show_goal()
         self.lock_trace_id = self.lock_moves.trace_add('write', self._lock_trace)
         self.start_up()
 
@@ -362,6 +370,18 @@ class Tetris:
             bg='black',
             bd=0
         )
+        self.lines_label.config(
+            bg='black',
+            bd=0
+        )
+        self.level_label.config(
+            bg='black',
+            bd=0
+        )
+        self.goal_label.config(
+            bg='black',
+            bd=0
+        )
         self.parent.grid_propagate(False)
         self.game_frame.grid_propagate(False)
         self.next_frame.grid_propagate(False)
@@ -371,6 +391,9 @@ class Tetris:
         self.next_frame.columnconfigure(4, weight=1)
         self.hold_frame.columnconfigure(0, weight=1)
         self.hold_frame.columnconfigure(4, weight=1)
+        size = self._make_text_label(None, '0'*7, Tetris.UI_FONT_SIZE)
+        size = int(self.parent_root.call(size.cget('image'), 'cget', '-width'))
+        self.score_frame.columnconfigure(1, minsize=size)
         self.game_frame.rowconfigure(0, weight=1)
         self.ui_frame.grid(row=0, column=int(self.ui_on_right), rowspan=4)
 
@@ -410,9 +433,45 @@ class Tetris:
         hold_label.grid(row=0, column=int(self.ui_on_right))
 
     def _set_up_score_area(self):
-        score_text = self._make_text_label(self.score_frame, 'SCORE: ', Tetris.UI_FONT_SIZE)
-        score_text.grid(row=0, column=0)
-        self.score_label.grid(row=0, column=1)
+        score_text = self._make_text_label(self.score_frame, 'SCORE:', Tetris.UI_FONT_SIZE)
+        lines_text = self._make_text_label(self.score_frame, 'LINES:', Tetris.UI_FONT_SIZE)
+        level_text = self._make_text_label(self.score_frame, 'LEVEL:', Tetris.UI_FONT_SIZE)
+        goal_text = self._make_text_label(self.score_frame, 'GOAL:', Tetris.UI_FONT_SIZE)
+
+        score_text.grid(
+            row=0,
+            column=0,
+            sticky=tk.W,
+            padx=Tetris.UI_INNER_PADDING,
+            pady=Tetris.UI_INNER_PADDING
+        )
+        lines_text.grid(
+            row=1,
+            column=0,
+            sticky=tk.W,
+            padx=Tetris.UI_INNER_PADDING,
+            pady=Tetris.UI_INNER_PADDING
+        )
+        level_text.grid(
+            row=2,
+            column=0,
+            sticky=tk.W,
+            padx=Tetris.UI_INNER_PADDING,
+            pady=Tetris.UI_INNER_PADDING
+        )
+        goal_text.grid(
+            row=3,
+            column=0,
+            sticky=tk.W,
+            padx=Tetris.UI_INNER_PADDING,
+            pady=Tetris.UI_INNER_PADDING
+        )
+
+        self.score_label.grid(row=0, column=1, sticky=tk.W)
+        self.lines_label.grid(row=1, column=1, sticky=tk.W)
+        self.level_label.grid(row=2, column=1, sticky=tk.W)
+        self.goal_label.grid(row=3, column=1, sticky=tk.W)
+
         self.score_frame.grid(row=4, column=int(not self.ui_on_right))
 
     def _set_up_keybindings(self):
@@ -515,6 +574,30 @@ class Tetris:
         )['image']
         self.score_label.config(image=score_text)
 
+    def show_lines(self):
+        lines_text = self._make_text_label(
+            self.score_frame,
+            str(self.lines_cleared),
+            Tetris.UI_FONT_SIZE
+        )['image']
+        self.lines_label.config(image=lines_text)
+
+    def show_level(self):
+        level_text = self._make_text_label(
+            self.score_frame,
+            str(self.level),
+            Tetris.UI_FONT_SIZE
+        )['image']
+        self.level_label.config(image=level_text)
+
+    def show_goal(self):
+        goal_text = self._make_text_label(
+            self.score_frame,
+            str(self.goal),
+            Tetris.UI_FONT_SIZE
+        )['image']
+        self.goal_label.config(image=goal_text)
+
     def show_ghost_tetrimino(self):
         if not self.ghost_piece:
             return
@@ -603,6 +686,12 @@ class Tetris:
         if self.queued_garbage:
             self.add_garbage()
         self.update_score(lines_cleared, t_spin, mini_t_spin)
+        self.update_lines_cleared(lines_cleared, t_spin, mini_t_spin)
+        if lines_cleared == 4:
+            self.back_to_back = True
+        elif lines_cleared > 0:
+            if t_spin or mini_t_spin:
+                self.back_to_back = True
         self.spawn_tetrimino(self.random_tetrimino())
 
     def place_tetrimino(self, tetrimino, area, override=False):
@@ -873,6 +962,8 @@ class Tetris:
                 print('T-Spin Triple')
                 action_total = 1600 * self.level
         else:
+            if lines in range(1, 4):
+                self.back_to_back = False
             if lines == 1:
                 print('Single')
                 action_total = 100 * self.level
@@ -886,15 +977,47 @@ class Tetris:
                 print('Tetris')
                 action_total = 800 * self.level
         action_total += .5 * action_total * self.back_to_back
-        if lines == 4:
-            self.back_to_back = True
-        elif lines > 0:
-            if t_spin or mini_t_spin:
-                self.back_to_back = True
-            else:
-                self.back_to_back == False
         self.score += int(action_total)
         self.show_score()
+
+    def update_lines_cleared(self, lines, t_spin, mini_t_spin):
+        cleared_lines = 0
+        if self.goal_type is GoalType.FIXED:
+            cleared_lines = lines
+        elif self.goal_type is GoalType.VARIABLE:
+            if mini_t_spin:
+                if lines == 0:
+                    cleared_lines = 1
+                elif lines == 1:
+                    cleared_lines = 2
+            elif t_spin:
+                if lines == 0:
+                    cleared_lines = 4
+                elif lines == 1:
+                    cleared_lines = 8
+                elif lines == 2:
+                    cleared_lines = 12
+                elif lines == 3:
+                    cleared_lines = 16
+            else:
+                if lines == 1:
+                    cleared_lines = 1
+                elif lines == 2:
+                    cleared_lines = 3
+                elif lines == 3:
+                    cleared_lines = 5
+                elif lines == 4:
+                    cleared_lines = 8
+        self.lines_cleared += cleared_lines
+        if self.back_to_back and lines != 0:
+            self.lines_cleared *= 1.5
+            self.lines_cleared = int(self.lines_cleared)
+        self.show_lines()
+        if self.lines_cleared >= self.goal:
+            self.level = min(Tetris.MAX_LEVEL, self.level+1)
+            self.goal = self.get_next_goal()
+            self.show_level()
+            self.show_goal()
 
     def get_next_goal(self):
         if self.goal_type is GoalType.VARIABLE:
@@ -1016,10 +1139,13 @@ class Tetris:
         for row in self.playfield:
             for square in row:
                 square.remove_mino()
+        self.game_started = False
         self.falling_lowest = 0
         self.level = self.starting_level
         self.score = 0
         self.back_to_back = False
+        self.lines_cleared = 0
+        self.goal = self.get_next_goal()
         self.play_id = None
         self.lock_moves.set(15)
         self.lock_movement = False
@@ -1031,7 +1157,6 @@ class Tetris:
         self.falling_tetrimino = None
         self.held_tetrimino = None
         self.ghost_tetrimino = None
-        self.game_started = False
         self.game_over = False
         self.has_held = False
         self.queued_garbage = 0
@@ -1040,6 +1165,9 @@ class Tetris:
         self.show_next_tetriminos()
         self.show_held_tetrimino()
         self.show_score()
+        self.show_lines()
+        self.show_level()
+        self.show_goal()
         self.start_up()
 
 
