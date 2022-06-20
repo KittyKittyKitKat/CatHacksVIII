@@ -532,7 +532,7 @@ class Tetris:
                     square.grid(row=row, column=col+1, sticky=tk.W)
 
     def _keypress_dispatch(self, event):
-        if self.game_over:
+        if self.game_over or self.game_paused:
             return
         if time.time() - self.key_time > .01:
             self.auto_repeat = ''
