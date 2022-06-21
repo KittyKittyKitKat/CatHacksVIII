@@ -1,5 +1,8 @@
 import tkinter as tk
 import time
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+from pygame import mixer
 from enum import Enum, auto
 from random import shuffle, randint
 from PIL import Image, ImageDraw, ImageFont, ImageTk
@@ -28,15 +31,15 @@ class GoalType(Enum):
 
 
 class TetriminoImage(Enum):
-    I = Image.open('assets/tetris/cyan.png')
-    J = Image.open('assets/tetris/blue.png')
-    L = Image.open('assets/tetris/orange.png')
-    O = Image.open('assets/tetris/yellow.png')
-    T = Image.open('assets/tetris/purple.png')
-    S = Image.open('assets/tetris/green.png')
-    Z = Image.open('assets/tetris/red.png')
-    GHOST = Image.open('assets/tetris/ghost.png')
-    GARBAGE = Image.open('assets/tetris/garbage.png')
+    I = Image.open('assets/tetris/sprites/cyan.png')
+    J = Image.open('assets/tetris/sprites/blue.png')
+    L = Image.open('assets/tetris/sprites/orange.png')
+    O = Image.open('assets/tetris/sprites/yellow.png')
+    T = Image.open('assets/tetris/sprites/purple.png')
+    S = Image.open('assets/tetris/sprites/green.png')
+    Z = Image.open('assets/tetris/sprites/red.png')
+    GHOST = Image.open('assets/tetris/sprites/ghost.png')
+    GARBAGE = Image.open('assets/tetris/sprites/garbage.png')
 
 
 class TetriminoType(Enum):
@@ -94,6 +97,13 @@ class RotationState(Enum):
                     new_rotation_state = RotationState.SOUTH
         return new_rotation_state
 
+
+class Sounds:
+    KOROBEINIKI = 'assets/tetris/audio/korobeiniki.ogg'
+
+    def __getattribute__(self, name):
+        return mixer.Sound(file=super(type(Sounds), self).__getattribute__(name))
+Sounds = Sounds()
 
 class Mino:
     def __init__(self, image, placed):
@@ -265,7 +275,17 @@ class Tetris:
     SKYLINE_VISIBILITY = 8
     MAX_LEVEL = 15
 
-    def __init__(self, parent, ui_on_right, ghost_piece, placement_mode, starting_level, goal_type, key_mapping, allow_pausing):
+    def __init__(self,
+                 parent,
+                 ui_on_right,
+                 ghost_piece,
+                 placement_mode,
+                 starting_level,
+                 goal_type,
+                 key_mapping,
+                 allow_pausing,
+                 music_channel
+        ):
         self.parent = parent
         self.ui_on_right = ui_on_right
         self.ghost_piece = ghost_piece
@@ -274,6 +294,7 @@ class Tetris:
         self.goal_type = goal_type
         self.key_mapping = key_mapping
         self.allow_pausing = allow_pausing
+        self.music_channel = music_channel
         self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
@@ -476,7 +497,7 @@ class Tetris:
             padx=Tetris.UI_INNER_PADDING,
             pady=Tetris.UI_INNER_PADDING
         )
-        pause_image = Image.open('assets/tetris/pause.png')
+        pause_image = Image.open('assets/tetris/sprites/pause.png')
         self.texts['PAUSE'] = ImageTk.PhotoImage(pause_image)
         self.pause_button.config(image=self.texts['PAUSE'], command=self.pause_game)
         self.score_label.grid(row=0, column=1, sticky=tk.W)
@@ -1113,6 +1134,8 @@ class Tetris:
             self.generate_seven_bag()
             self.spawn_tetrimino(self.random_tetrimino())
             self.game_started = True
+            self.music_channel.set_volume(0.2)
+            self.music_channel.play(Sounds.KOROBEINIKI)
 
         if self.game_over:
             if self.lock_id is not None:
@@ -1120,6 +1143,7 @@ class Tetris:
             if self.play_id is not None:
                 self.parent.after_cancel(self.play_id)
             self.game_lost()
+            self.music_channel.stop()
             return
 
         fell = self.tetrimino_fall()
@@ -1133,6 +1157,7 @@ class Tetris:
         if not self.game_started:
             return
         if not self.game_paused:
+            self.music_channel.pause()
             if self.play_id is not None:
                 self.parent.after_cancel(self.play_id)
                 self.play_id = None
@@ -1157,6 +1182,7 @@ class Tetris:
             for child in self.parent.place_slaves():
                 child.place_forget()
             self.play_game()
+            self.music_channel.unpause()
         self.game_paused = not self.game_paused
 
     def game_lost(self):
@@ -1241,6 +1267,9 @@ class Tetris:
 
 
 if __name__ == '__main__':
+    mixer.init()
+    tetris_music = mixer.Channel(0)
+    # tetris_effects = mixer.Channel(1)
     root = tk.Tk()
     root.resizable(0, 0)
     root.title('Tetris')
@@ -1262,7 +1291,8 @@ if __name__ == '__main__':
         starting_level=1,
         goal_type=GoalType.VARIABLE,
         key_mapping=keys,
-        allow_pausing=True
+        allow_pausing=True,
+        music_channel=tetris_music,
     )
     tetris_frame.grid(row=0, column=0)
     root.mainloop()
