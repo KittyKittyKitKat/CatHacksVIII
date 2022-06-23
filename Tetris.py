@@ -99,7 +99,15 @@ class RotationState(Enum):
 
 
 class Sounds:
-    KOROBEINIKI = 'assets/tetris/audio/korobeiniki.ogg'
+    KOROBEINIKI = 'assets/tetris/audio/korobeiniki.wav'
+    MOVE = 'assets/tetris/audio/move.wav'
+    LOCK = 'assets/tetris/audio/lock.wav'
+    GAME_OVER = 'assets/tetris/audio/game_over.wav'
+    COUNTDOWN = 'assets/tetris/audio/countdown.wav'
+    GO = 'assets/tetris/audio/go.wav'
+    HOLD = 'assets/tetris/audio/hold.wav'
+    CLEAR = 'assets/tetris/audio/clear.wav'
+    TETRIS = 'assets/tetris/audio/tetris.wav'
 
     def __getattribute__(self, name):
         return mixer.Sound(file=super(type(Sounds), self).__getattribute__(name))
@@ -284,7 +292,9 @@ class Tetris:
                  goal_type,
                  key_mapping,
                  allow_pausing,
-                 music_channel
+                 music_channel,
+                 move_channel,
+                 line_channel
         ):
         self.parent = parent
         self.ui_on_right = ui_on_right
@@ -295,6 +305,8 @@ class Tetris:
         self.key_mapping = key_mapping
         self.allow_pausing = allow_pausing
         self.music_channel = music_channel
+        self.move_channel = move_channel
+        self.line_channel = line_channel
         self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
@@ -327,7 +339,7 @@ class Tetris:
         self.held_tetrimino = None
         self.ghost_tetrimino = None
         self.game_paused = False
-        self.game_over = False
+        self.game_over = tk.BooleanVar(master=self.parent, value=False)
         self.has_held = False
         self.queued_garbage = 0
         self.next_tetriminos = []
@@ -347,6 +359,10 @@ class Tetris:
         self.show_level()
         self.show_goal()
         self.lock_trace_id = self.lock_moves.trace_add('write', self._lock_trace)
+        self.game_over_trace_id = self.game_over.trace_add('write', self._game_over_trace)
+        self.music_channel.set_volume(0.1)
+        self.move_channel.set_volume(0.4)
+        self.line_channel.set_volume(0.3)
         self.start_up()
 
     def _config_widgets(self):
@@ -412,6 +428,7 @@ class Tetris:
             highlightthickness=Tetris.BORDER_WIDTH,
             highlightbackground='white'
         )
+
         self.parent.grid_propagate(False)
         self.game_frame.grid_propagate(False)
         self.next_frame.grid_propagate(False)
@@ -426,7 +443,6 @@ class Tetris:
         self.score_frame.columnconfigure(1, minsize=size)
         self.score_frame.columnconfigure(2, weight=1)
         self.game_frame.rowconfigure(0, weight=1)
-        self.ui_frame.grid(row=0, column=int(self.ui_on_right), rowspan=4)
 
     def _set_up_playfield(self):
         for row in range(Tetris.ROWS+Tetris.BUFFER_ROWS):
@@ -438,6 +454,7 @@ class Tetris:
                 well_row.append(square)
             self.playfield.append(well_row)
         self.game_frame.grid(row=0, column=int(not self.ui_on_right), rowspan=4)
+        self.ui_frame.grid(row=0, column=int(self.ui_on_right), rowspan=4)
 
     def _set_up_next_area(self):
         for row in range(Tetris.NEXT_ROWS):
@@ -553,7 +570,7 @@ class Tetris:
                     square.grid(row=row, column=col+1, sticky=tk.W)
 
     def _keypress_dispatch(self, event):
-        if self.game_over or self.game_paused:
+        if self.game_over.get() or self.game_paused:
             return
         if time.time() - self.key_time > .01:
             self.auto_repeat = ''
@@ -580,6 +597,8 @@ class Tetris:
             self.tetrimino_rotate(True)
         elif self.auto_repeat != key and key == self.key_mapping.get('rotate counterclockwise'):
             self.tetrimino_rotate(False)
+        elif key == 'Return':
+            self.game_over.set(True)
         self.auto_repeat = key
 
     def _keyrelease_dispatch(self, event):
@@ -685,7 +704,7 @@ class Tetris:
         return spawn_pos
 
     def spawn_tetrimino(self, tetrimino_type):
-        if self.game_over:
+        if self.game_over.get():
             return
         spawn_pos = self.get_tetrimino_spawn_pos(tetrimino_type)
         self.falling_lowest = spawn_pos[1]
@@ -693,7 +712,7 @@ class Tetris:
         self.falling_tetrimino = Tetrimino(tetrimino_type, spawn_pos)
         overlap = self.place_tetrimino(self.falling_tetrimino, self.playfield)
         if overlap:
-            self.game_over = True
+            self.game_over.set(True)
             self.place_tetrimino(self.falling_tetrimino, self.playfield, override=True)
         self.ghost_tetrimino = Tetrimino(tetrimino_type, spawn_pos, True)
         self.show_ghost_tetrimino()
@@ -714,6 +733,7 @@ class Tetris:
         self.ghost_tetrimino = Tetrimino(self.falling_tetrimino.piece_type, self.falling_tetrimino.upper_left_coords, True)
         self.show_ghost_tetrimino()
         self.show_held_tetrimino()
+        self.move_channel.play(Sounds.HOLD)
 
     def _lock_trace(self, *args):
         lock_moves = self.lock_moves.get()
@@ -722,6 +742,11 @@ class Tetris:
             if self.lock_id is not None:
                 self.parent.after_cancel(self.lock_id)
             self.lock_tetrimino()
+
+    def _game_over_trace(self, *args):
+        lost = self.game_over.get()
+        if lost:
+            self.game_lost()
 
     def lock_tetrimino(self):
         if self.lock_id is not None:
@@ -739,7 +764,7 @@ class Tetris:
             if row >= Tetris.BUFFER_ROWS:
                 visible = True
         if not visible:
-            self.game_over = True
+            self.game_over.set(True)
         lines_cleared = self.clear_lines()
         self.has_held = False
         if self.queued_garbage:
@@ -814,10 +839,10 @@ class Tetris:
                 self.parent.after_cancel(self.lock_id)
                 self.lock_id = None
             self.rotation_point = None
+            if self.speed_factor != 1:
+                self.move_channel.play(Sounds.MOVE)
             return True
         else:
-            if self.lock_id is not None:
-                self.parent.after_cancel(self.lock_id)
             self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
             return False
 
@@ -854,6 +879,7 @@ class Tetris:
                 if self.placement_mode is PlacementType.EXTENDED:
                     self.lock_moves.set(self.lock_moves.get() - 1)
             self.rotation_point = None
+            self.move_channel.play(Sounds.MOVE)
 
     def tetrimino_right(self):
         if self.falling_tetrimino is None:
@@ -873,6 +899,7 @@ class Tetris:
                 if self.placement_mode is PlacementType.EXTENDED:
                     self.lock_moves.set(self.lock_moves.get() - 1)
             self.rotation_point = None
+            self.move_channel.play(Sounds.MOVE)
 
     def tetrimino_rotate(self, clockwise):
         if self.falling_tetrimino is None:
@@ -909,6 +936,7 @@ class Tetris:
                 self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
                 if self.placement_mode is PlacementType.EXTENDED:
                     self.lock_moves.set(self.lock_moves.get() - 1)
+            self.move_channel.play(Sounds.MOVE)
         else:
             self.rotation_point = None
 
@@ -918,7 +946,7 @@ class Tetris:
                 square = self.playfield[row][col]
                 if (mino := square.mino) is not None:
                     if row-self.queued_garbage < 0:
-                        self.game_over = True
+                        self.game_over.set(True)
                         break
                     square_above = self.playfield[row-self.queued_garbage][col]
                     square.remove_mino()
@@ -933,7 +961,7 @@ class Tetris:
         self.queued_garbage = 0
 
     def clear_lines(self):
-        if self.game_over:
+        if self.game_over.get():
             return 0
         runs = []
         run = 0
@@ -962,7 +990,15 @@ class Tetris:
                         if square_below.mino is None:
                             square.remove_mino()
                             square_below.place_mino(mino)
-        return sum(runs)
+
+        lines_cleared = sum(runs)
+        if lines_cleared == 4:
+            self.line_channel.play(Sounds.TETRIS)
+        elif lines_cleared > 0:
+            self.line_channel.play(Sounds.CLEAR)
+        else:
+            self.line_channel.play(Sounds.LOCK)
+        return lines_cleared
 
     def detect_t_spin(self):
         if self.falling_tetrimino.piece_type is not TetriminoType.T:
@@ -1002,38 +1038,28 @@ class Tetris:
         action_total = 0
         if mini_t_spin:
             if lines == 0:
-                print('Mini T-Spin')
                 action_total = 100 * self.level
             elif lines == 1:
-                print('Mini T-Spin Single')
                 action_total = 200 * self.level
         elif t_spin:
             if lines == 0:
-                print('T-Spin')
                 action_total = 400 * self.level
             elif lines == 1:
-                print('T-Spin Single')
                 action_total = 800 * self.level
             elif lines == 2:
-                print('T-Spin Double')
                 action_total = 1200 * self.level
             elif lines == 3:
-                print('T-Spin Triple')
                 action_total = 1600 * self.level
         else:
             if lines in range(1, 4):
                 self.back_to_back = False
             if lines == 1:
-                print('Single')
                 action_total = 100 * self.level
             elif lines == 2:
-                print('Double')
                 action_total = 300 * self.level
             elif lines == 3:
-                print('Triple')
                 action_total = 500 * self.level
             elif lines == 4:
-                print('Tetris')
                 action_total = 800 * self.level
         action_total += .5 * action_total * self.back_to_back
         self.score += int(action_total)
@@ -1092,11 +1118,12 @@ class Tetris:
         start_up_root.resizable(0, 0)
         start_up_root.wm_attributes('-type', 'splash')
         start_up_frame = tk.Frame(
-            start_up_root, bg='black',
+            start_up_root,
+            bg='black',
             highlightthickness=Tetris.BORDER_WIDTH,
             highlightbackground='white'
         )
-        ready_text = self._make_text_label(start_up_frame, 'Ready?', 22)
+        ready_text = self._make_text_label(None, 'Ready?', 22)
         ready_text_height = int(self.parent_root.call(ready_text.cget('image'), 'cget', '-height'))
         ready_text_width = int(self.parent_root.call(ready_text.cget('image'), 'cget', '-width'))
         ready_button = tk.Button(
@@ -1109,6 +1136,9 @@ class Tetris:
             highlightthickness=Tetris.BORDER_WIDTH,
             highlightbackground='white'
         )
+        countdown = self._make_text_label(start_up_frame, '', 22)
+        countdown.config(height=ready_button.winfo_reqheight(), width=ready_button.winfo_reqwidth())
+        countdowns = ['3', '2', '1', 'GO!']
 
         def sync_windows(event=None):
             if self.game_frame.winfo_rootx() != 0:
@@ -1117,7 +1147,25 @@ class Tetris:
             start_up_root_y = self.game_frame.winfo_rooty() + (self.game_frame.winfo_height() - start_up_root.winfo_height())//2
             start_up_root.geometry(f'+{start_up_root_x}+{start_up_root_y}')
 
+        def display_countdown():
+            text = countdowns.pop(0)
+            countdown.config(image=self._make_text_label(None, text, 22).cget('image'))
+            if text == 'GO!':
+                self.move_channel.play(Sounds.GO)
+            else:
+                self.move_channel.play(Sounds.COUNTDOWN)
+            if countdowns:
+                start_up_root.after(1000, ready_callback)
+
         def ready_callback():
+            if not countdown.winfo_viewable():
+                ready_button.grid_forget()
+                countdown.grid(row=0, column=0, pady=10, padx=10)
+            display_countdown()
+            if not countdowns:
+                start_up_root.after(1000, close_and_start)
+
+        def close_and_start():
             self.parent_root.unbind('<Configure>')
             start_up_root.destroy()
             self.play_game()
@@ -1134,16 +1182,9 @@ class Tetris:
             self.generate_seven_bag()
             self.spawn_tetrimino(self.random_tetrimino())
             self.game_started = True
-            self.music_channel.set_volume(0.2)
-            self.music_channel.play(Sounds.KOROBEINIKI)
+            self.music_channel.play(Sounds.KOROBEINIKI, loops=-1)
 
-        if self.game_over:
-            if self.lock_id is not None:
-                self.parent.after_cancel(self.lock_id)
-            if self.play_id is not None:
-                self.parent.after_cancel(self.play_id)
-            self.game_lost()
-            self.music_channel.stop()
+        if self.game_over.get():
             return
 
         fell = self.tetrimino_fall()
@@ -1158,6 +1199,8 @@ class Tetris:
             return
         if not self.game_paused:
             self.music_channel.pause()
+            self.move_channel.stop()
+            self.move_channel.play(Sounds.COUNTDOWN)
             if self.play_id is not None:
                 self.parent.after_cancel(self.play_id)
                 self.play_id = None
@@ -1181,11 +1224,21 @@ class Tetris:
             self._uncover_hold_area()
             for child in self.parent.place_slaves():
                 child.place_forget()
+            self.move_channel.play(Sounds.GO)
             self.play_game()
             self.music_channel.unpause()
         self.game_paused = not self.game_paused
 
     def game_lost(self):
+        if self.lock_id is not None:
+            self.parent.after_cancel(self.lock_id)
+        if self.play_id is not None:
+            self.parent.after_cancel(self.play_id)
+        self.music_channel.stop()
+        self.move_channel.stop()
+        self.line_channel.stop()
+        self.line_channel.play(Sounds.GAME_OVER)
+
         game_over_root = tk.Toplevel()
         game_over_root.resizable(0, 0)
         game_over_root.wm_attributes('-type', 'splash')
@@ -1252,7 +1305,7 @@ class Tetris:
         self.held_tetrimino = None
         self.ghost_tetrimino = None
         self.game_paused = False
-        self.game_over = False
+        self.game_over.set(False)
         self.has_held = False
         self.queued_garbage = 0
         self.next_tetriminos = []
@@ -1267,9 +1320,11 @@ class Tetris:
 
 
 if __name__ == '__main__':
+    mixer.pre_init(buffer=4096)
     mixer.init()
     tetris_music = mixer.Channel(0)
-    # tetris_effects = mixer.Channel(1)
+    tetris_move = mixer.Channel(1)
+    tetris_line = mixer.Channel(2)
     root = tk.Tk()
     root.resizable(0, 0)
     root.title('Tetris')
@@ -1288,11 +1343,13 @@ if __name__ == '__main__':
         ui_on_right=True,
         ghost_piece = True,
         placement_mode=PlacementType.EXTENDED,
-        starting_level=1,
+        starting_level=4,
         goal_type=GoalType.VARIABLE,
         key_mapping=keys,
         allow_pausing=True,
         music_channel=tetris_music,
+        move_channel=tetris_move,
+        line_channel=tetris_line
     )
     tetris_frame.grid(row=0, column=0)
     root.mainloop()
