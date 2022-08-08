@@ -1,4 +1,7 @@
 import tkinter as tk
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+from pygame import mixer
 from enum import Enum, auto
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageTk
 
@@ -17,6 +20,12 @@ class GameState(Enum):
     FIFTY_MOVE = auto()
     MUTUAL_DRAW = auto()
     RESIGNED = auto()
+
+
+class Sounds:
+    def __getattribute__(self, name):
+        return mixer.Sound(file=super(type(Sounds), self).__getattribute__(name))
+Sounds = Sounds()
 
 
 class PieceImage(Enum):
@@ -414,7 +423,7 @@ class Chess:
         Pawn: 'P'
     }
 
-    def __init__(self, parent, square_sheet, flip_after_move, load_position=None):
+    def __init__(self, parent, square_sheet, flip_after_move, sound_channel, load_position=None):
         self.parent = parent
         self.parent_root = self.parent.winfo_toplevel()
         self.squares = []
@@ -422,6 +431,7 @@ class Chess:
         self.current_player = Team.WHITE
         self.resigned_player = None
         self.flip_after_move = flip_after_move
+        self.sound_channel = sound_channel
         self.board_flipped = False
         self.selected_piece = None
         self.pawn_captured_en_passant = None
@@ -1062,10 +1072,18 @@ class Chess:
 
 
 if __name__ == '__main__':
+    mixer.pre_init(buffer=4096)
+    mixer.init()
+    chess_sound = mixer.Channel(0)
     root = tk.Tk()
     root.resizable(0, 0)
     root.title('Chess')
     chess_frame = tk.Frame(root)
-    chess = Chess(chess_frame, 'assets/chess/squares.png', False)
+    chess = Chess(
+        parent=chess_frame,
+        square_sheet='assets/chess/squares.png',
+        sound_channel=chess_sound,
+        flip_after_move=False
+    )
     chess_frame.grid(row=0, column=0)
     root.mainloop()
