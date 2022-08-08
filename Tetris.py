@@ -426,8 +426,9 @@ class Tetris:
         self.pause_button.config(
             bg='black',
             bd=0,
-            highlightthickness=Tetris.BORDER_WIDTH,
-            highlightbackground='white'
+            relief=tk.FLAT,
+            highlightthickness=0,
+            activebackground='black'
         )
 
         self.parent.grid_propagate(False)
@@ -486,6 +487,8 @@ class Tetris:
         lines_text = self._make_text_label(self.score_frame, 'LINES:', Tetris.UI_FONT_SIZE)
         level_text = self._make_text_label(self.score_frame, 'LEVEL:', Tetris.UI_FONT_SIZE)
         goal_text = self._make_text_label(self.score_frame, 'GOAL:', Tetris.UI_FONT_SIZE)
+        self._make_text_label(self.score_frame, '\u23f8', int(Tetris.UI_FONT_SIZE*1.5), symbol=True)
+        self._make_text_label(self.score_frame, '\u23f5', int(Tetris.UI_FONT_SIZE*1.5), symbol=True)
 
         score_text.grid(
             row=0,
@@ -515,16 +518,14 @@ class Tetris:
             padx=Tetris.UI_INNER_PADDING,
             pady=Tetris.UI_INNER_PADDING
         )
-        pause_image = Image.open('assets/tetris/sprites/pause.png')
-        self.texts['PAUSE'] = ImageTk.PhotoImage(pause_image)
-        self.pause_button.config(image=self.texts['PAUSE'], command=self.pause_game)
+        self.pause_button.config(image=self.texts['\u23f8'], command=self.pause_game)
         self.score_label.grid(row=0, column=1, sticky=tk.W)
         self.lines_label.grid(row=1, column=1, sticky=tk.W)
         self.level_label.grid(row=2, column=1, sticky=tk.W)
         self.goal_label.grid(row=3, column=1, sticky=tk.W)
 
         if self.allow_pausing:
-            self.pause_button.grid(row=0, column=3, sticky=tk.E, rowspan=2, padx=Tetris.UI_INNER_PADDING)
+            self.pause_button.grid(row=0, column=3, sticky=tk.NE, rowspan=2, padx=Tetris.UI_INNER_PADDING, pady=Tetris.UI_INNER_PADDING)
 
         self.score_frame.grid(row=4, column=int(not self.ui_on_right))
 
@@ -607,9 +608,12 @@ class Tetris:
         if event.keysym == self.key_mapping.get('soft drop'):
             self.speed_factor = 1
 
-    def _make_text_label(self, parent, text, font_size):
+    def _make_text_label(self, parent, text, font_size, symbol=False):
         if text not in self.texts:
-            fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+            if not symbol:
+                fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+            else:
+                fnt = ImageFont.truetype('assets/Symbola.ttf', font_size)
             size = fnt.getsize(text)
             text_img = Image.new('RGBA', size, (0, 0, 0))
             d = ImageDraw.Draw(text_img, 'RGBA')
@@ -1202,6 +1206,7 @@ class Tetris:
         if not self.game_started:
             return
         if not self.game_paused:
+            self.pause_button.config(image=self.texts['\u23f5'])
             self.music_channel.pause()
             self.move_channel.stop()
             self.move_channel.play(Sounds.COUNTDOWN)
@@ -1223,6 +1228,7 @@ class Tetris:
             paused_text_y = self.game_frame.winfo_y() + (self.game_frame.winfo_height() - paused_text_height)//2
             paused_text.place(x=paused_text_x, y=paused_text_y)
         else:
+            self.pause_button.config(image=self.texts['\u23f8'])
             self._uncover_playfield()
             self._uncover_next_area()
             self._uncover_hold_area()
