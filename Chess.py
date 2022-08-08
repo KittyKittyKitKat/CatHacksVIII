@@ -14,7 +14,7 @@ class GameState(Enum):
     STALEMATE = auto()
     INSUFFICIENT_MATERIAL = auto() #TODO
     THREEFOLD_REPETITION = auto() #TODO: FEN notation check
-    FIFTY_MOVE = auto() #TODO: FEN notation check
+    FIFTY_MOVE = auto()
     MUTUAL_DRAW = auto()
     RESIGNED = auto()
 
@@ -842,6 +842,8 @@ class Chess:
                 self.game_state = GameState.CHECKMATE
             else:
                 self.game_state = GameState.STALEMATE
+        if self.halfmove_clock == 100:
+            self.game_state = GameState.FIFTY_MOVE
         if self.game_state not in (GameState.PLAYING, GameState.PAUSED):
             self.game_over_screen()
             return True
@@ -864,6 +866,8 @@ class Chess:
                 text = f'{self.resigned_player.name.title()} resigns'
             case GameState.MUTUAL_DRAW:
                 text = 'Draw: By Agreement'
+            case GameState.FIFTY_MOVE:
+                text = 'Draw: Fifty Move Rule'
             case _:
                 text = 'Game Over'
         game_over_frame = tk.Frame(
