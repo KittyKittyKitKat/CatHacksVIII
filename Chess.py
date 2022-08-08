@@ -412,7 +412,7 @@ class Chess:
         Pawn: 'P'
     }
 
-    def __init__(self, parent, square_sheet, flip_after_move):
+    def __init__(self, parent, square_sheet, flip_after_move, load_position=None):
         self.parent = parent
         self.parent_root = self.parent.winfo_toplevel()
         self.squares = []
@@ -438,7 +438,10 @@ class Chess:
         self.light_colour = self.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
         self._config_widgets()
         self.set_up_board()
-        self.create_classic_setup()
+        if load_position is None:
+            self.create_classic_setup()
+        else:
+            self.load_fen_notation(load_position)
 
     def _config_widgets(self):
         self.parent.grid_propagate(False)
@@ -494,6 +497,7 @@ class Chess:
         square = self.squares[rank][file]
         square.place_piece(piece)
         self.pieces.append(piece)
+        return piece
 
     def get_piece_at_pos(self, rank, file):
         for piece in self.pieces:
@@ -957,6 +961,60 @@ class Chess:
         fen_notation.append(str(self.halfmove_clock))
         fen_notation.append(str(self.fullmove_number))
         return ' '.join(fen_notation)
+
+    def load_fen_notation(self, fen_notation):
+        board, turn, castling, en_passant, halfmove, fullmove = fen_notation.split()
+        turn = turn.lower()
+        if turn not in 'wb':
+            raise ValueError(f'Invalid player value. Must be one of (w, b), not {turn}')
+        ascii_to_piece = {value: key for key, value in Chess.PIECE_TO_ASCII.items()}
+        for rank_index, rank in enumerate(board.split('/')):
+            current_file_index = 0
+            for char in rank:
+                if char.isnumeric():
+                    if int(char) not in range(1, 9):
+                        raise ValueError(f'Invalid number of empty squares: {char}')
+                    current_file_index += int(char)
+                else:
+                    if char.lower() not in 'kqbrnp':
+                        raise ValueError(f'Invalid piece notation: {char}')
+                    piece_cls = ascii_to_piece[char.upper()]
+                    team = Team.WHITE if char.isupper() else Team.BLACK
+                    piece = self.create_piece(rank_index, current_file_index, piece_cls, team)
+                    if piece_cls is Pawn:
+                        if team is Team.WHITE and rank_index != Chess.RANKS - 2:
+                            piece.has_moved = True
+                        elif team is Team.BLACK and rank_index != 1:
+                            piece.has_moved = True
+                    if piece_cls is Rook:
+                        piece.has_moved = True
+                    current_file_index += 1
+        if turn == 'w':
+            self.current_player = Team.WHITE
+        elif turn == 'b':
+            self.current_player = Team.BLACK
+
+        if castling != '-':
+            if 'K' in castling:
+                self.squares[Chess.RANKS-1][Chess.FILES-1].occupying_piece.has_moved = False
+            if 'Q' in castling:
+                self.squares[Chess.RANKS-1][0].occupying_piece.has_moved = False
+            if 'k' in castling:
+                self.squares[0][Chess.FILES-1].occupying_piece.has_moved = False
+            if 'q' in castling:
+                self.squares[0][0].occupying_piece.has_moved = False
+
+        if en_passant != '-':
+            ep_file = ord(en_passant[0])-97
+            ep_rank = Chess.RANKS - int(en_passant[1])
+            if turn == 'w':
+                dr = 1
+            elif turn == 'b':
+                dr = -1
+            self.squares[ep_rank + dr][ep_file].occupying_piece.has_just_moved_double = True
+
+        self.halfmove_clock = int(halfmove)
+        self.fullmove_number = int(fullmove)
 
 
 if __name__ == '__main__':
