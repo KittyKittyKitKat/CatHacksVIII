@@ -487,7 +487,7 @@ class Tetris:
             self.next_area.append(well_row)
         self.next_frame.grid(row=3, column=int(self.ui_on_right), rowspan=2)
         next_label = self._make_text_label(self.parent, 'NEXT', Tetris.UI_FONT_SIZE)
-        next_label.grid(row=2, column=int(self.ui_on_right))
+        next_label.grid(row=2, column=int(self.ui_on_right), sticky=tk.NS)
 
     def _set_up_hold_area(self):
         for row in range(Tetris.HOLD_ROWS):
@@ -497,7 +497,7 @@ class Tetris:
                 square.grid(row=row, column=col+1, sticky=tk.W)
                 well_row.append(square)
             self.hold_area.append(well_row)
-        self.hold_frame.grid(row=1, column=int(self.ui_on_right))
+        self.hold_frame.grid(row=1, column=int(self.ui_on_right), sticky=tk.NS)
         hold_label = self._make_text_label(self.parent, 'HOLD', Tetris.UI_FONT_SIZE)
         hold_label.grid(row=0, column=int(self.ui_on_right))
 
@@ -528,14 +528,14 @@ class Tetris:
             pady=Tetris.UI_INNER_PADDING
         )
         level_text.grid(
-            row=2,
+            row=3,
             column=0,
             sticky=tk.W,
             padx=Tetris.UI_INNER_PADDING,
             pady=Tetris.UI_INNER_PADDING
         )
         goal_text.grid(
-            row=3,
+            row=4,
             column=0,
             sticky=tk.W,
             padx=Tetris.UI_INNER_PADDING,
@@ -546,13 +546,13 @@ class Tetris:
         self.sound_button.config(image=self.texts['\U0001F50A'], command=self.sound_toggle)
         self.score_label.grid(row=0, column=1, sticky=tk.W)
         self.lines_label.grid(row=1, column=1, sticky=tk.W)
-        self.level_label.grid(row=2, column=1, sticky=tk.W)
-        self.goal_label.grid(row=3, column=1, sticky=tk.W)
+        self.level_label.grid(row=3, column=1, sticky=tk.W)
+        self.goal_label.grid(row=4, column=1, sticky=tk.W)
 
         if self.allow_pausing:
             self.pause_button.grid(row=0, column=3, rowspan=1, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=(Tetris.UI_INNER_PADDING, 0))
-        self.music_button.grid(row=1, column=3, rowspan=2, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=Tetris.UI_INNER_PADDING)
-        self.sound_button.grid(row=3, column=3, rowspan=1, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=(0, Tetris.UI_INNER_PADDING))
+        self.music_button.grid(row=1, column=3, rowspan=3, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=Tetris.UI_INNER_PADDING)
+        self.sound_button.grid(row=4, column=3, rowspan=1, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=(0, Tetris.UI_INNER_PADDING))
 
         self.score_frame.grid(row=4, column=int(not self.ui_on_right))
 
