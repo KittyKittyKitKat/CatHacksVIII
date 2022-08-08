@@ -430,6 +430,7 @@ class Chess:
         self.game_state = GameState.PLAYING
         self.halfmove_clock = 0
         self.fullmove_number = 1
+        self.last_moves = []
         self.highlight_move_colour = (0, 255, 0)
         self.highlight_check_colour = (255, 0, 0)
         self.texts = {}
@@ -444,6 +445,7 @@ class Chess:
             self.create_classic_setup()
         else:
             self.load_fen_notation(load_position)
+        self.last_moves.append(self.generate_fen_notation())
 
     def _config_widgets(self):
         self.parent.grid_propagate(False)
@@ -712,6 +714,9 @@ class Chess:
                 self.fullmove_number += 1
             self.change_player()
             self.highlight_check()
+            self.last_moves.append(self.generate_fen_notation())
+            while len(self.last_moves) > 9:
+                self.last_moves.pop(0)
             over = self.is_game_over()
             if not over:
                 self.flip_board()
@@ -846,6 +851,12 @@ class Chess:
                 self.game_state = GameState.STALEMATE
         if self.halfmove_clock == 100:
             self.game_state = GameState.FIFTY_MOVE
+        if len(self.last_moves) == 9 and (
+                self.last_moves[0].split()[:4] ==
+                self.last_moves[4].split()[:4] ==
+                self.last_moves[8].split()[:4]
+            ):
+            self.game_state = GameState.THREEFOLD_REPETITION
         if self.game_state not in (GameState.PLAYING, GameState.PAUSED):
             self.game_over_screen()
             return True
@@ -870,6 +881,8 @@ class Chess:
                 text = 'Draw: By Agreement'
             case GameState.FIFTY_MOVE:
                 text = 'Draw: Fifty Move Rule'
+            case GameState.THREEFOLD_REPETITION:
+                text = 'Draw: By Repetition'
             case _:
                 text = 'Game Over'
         game_over_frame = tk.Frame(
