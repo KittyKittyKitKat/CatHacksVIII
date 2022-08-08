@@ -462,9 +462,9 @@ class Chess:
                 fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
             else:
                 fnt = ImageFont.truetype('assets/Symbola.ttf', font_size)
-            size = fnt.getsize(text)
+            size = fnt.getbbox(text)
             bg, fg = (self.light_colour, self.dark_colour) if not flip_colours else (self.dark_colour, self.light_colour)
-            text_img = Image.new('RGBA', size, bg)
+            text_img = Image.new('RGBA', (size[2], size[3]), bg)
             d = ImageDraw.Draw(text_img, 'RGBA')
             d.text((0, 0), text, font=fnt, fill=fg)
             text_tk = ImageTk.PhotoImage(text_img)
