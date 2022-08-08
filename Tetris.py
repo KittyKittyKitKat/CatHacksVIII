@@ -331,6 +331,7 @@ class Tetris:
         self.lock_moves = tk.IntVar(master=self.parent, value=15)
         self.lock_movement = False
         self.lock_id = None
+        self.lock_engaged = False
         self.auto_repeat = ''
         self.key_time = 0
         self.speed_factor = 1
@@ -706,6 +707,7 @@ class Tetris:
     def spawn_tetrimino(self, tetrimino_type):
         if self.game_over.get():
             return
+        self.lock_engaged = False
         spawn_pos = self.get_tetrimino_spawn_pos(tetrimino_type)
         self.falling_lowest = spawn_pos[1]
         self.lock_movement = False
@@ -843,7 +845,9 @@ class Tetris:
                 self.move_channel.play(Sounds.MOVE)
             return True
         else:
-            self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
+            if not self.lock_engaged:
+                self.lock_id = self.parent.after(self.lock_time, self.lock_tetrimino)
+                self.lock_engaged = True
             return False
 
     def tetrimino_drop(self):
@@ -1343,7 +1347,7 @@ if __name__ == '__main__':
         ui_on_right=True,
         ghost_piece = True,
         placement_mode=PlacementType.EXTENDED,
-        starting_level=4,
+        starting_level=1,
         goal_type=GoalType.VARIABLE,
         key_mapping=keys,
         allow_pausing=True,
