@@ -12,10 +12,9 @@ class GameState(Enum):
     PAUSED = auto()
     CHECKMATE = auto()
     STALEMATE = auto()
-    INSUFFICIENT_MATERIAL = auto()
-    DEAD_STATE = auto()
-    THREEFOLD_REPETITION = auto()
-    FIFTY_MOVE = auto()
+    INSUFFICIENT_MATERIAL = auto() #TODO
+    THREEFOLD_REPETITION = auto() #TODO: FEN notation check
+    FIFTY_MOVE = auto() #TODO: FEN notation check
     MUTUAL_DRAW = auto()
     RESIGNED = auto()
 
@@ -404,6 +403,14 @@ class Chess:
     RANKS = 8
     FILES = 8
     BORDER_WIDTH = 2
+    PIECE_TO_ASCII = {
+        King: 'K',
+        Queen: 'Q',
+        Knight: 'N',
+        Bishop: 'B',
+        Rook: 'R',
+        Pawn: 'P'
+    }
 
     def __init__(self, parent, square_sheet, flip_after_move):
         self.parent = parent
@@ -417,7 +424,10 @@ class Chess:
         self.selected_piece = None
         self.pawn_captured_en_passant = None
         self.castling_rook = None
+        self.piece_just_moved = None
         self.game_state = GameState.PLAYING
+        self.halfmove_clock = 0
+        self.fullmove_number = 1
         self.highlight_move_colour = (0, 255, 0)
         self.highlight_check_colour = (255, 0, 0)
         self.texts = {}
@@ -534,9 +544,12 @@ class Chess:
         self.current_player = Team.WHITE
         self.resigned_player = None
         self.game_state = GameState.PLAYING
+        self.halfmove_clock = 0
+        self.fullmove_number = 1
         self.selected_piece = None
         self.pawn_captured_en_passant = None
         self.castling_rook = None
+        self.piece_just_moved = None
         if self.board_flipped:
             self.flip_board()
 
@@ -667,6 +680,7 @@ class Chess:
         piece_to_move = self.selected_piece
         can_move = piece_to_move.check_move(new_rank, new_file)
         if can_move:
+            self.halfmove_clock += 1
             self.reset_board_colouring()
             for pawn in [piece for piece in self.pieces if isinstance(piece, Pawn)]:
                 if pawn is not piece_to_move:
@@ -679,13 +693,17 @@ class Chess:
             captured_piece = self.get_piece_at_pos(new_rank, new_file)
             if captured_piece is not None:
                 self.capture_piece(captured_piece)
+                self.halfmove_clock = 0
             self.move_piece(piece_to_move, new_rank, new_file)
             if isinstance(piece_to_move, Pawn):
+                self.halfmove_clock = 0
                 if self.pawn_captured_en_passant is not None:
                     self.capture_piece(self.pawn_captured_en_passant)
                     self.pawn_captured_en_passant = None
                 if new_rank == 0 or new_rank == Chess.RANKS - 1:
                     self.promote_piece(piece_to_move)
+            if self.current_player is Team.BLACK:
+                self.fullmove_number += 1
             self.change_player()
             self.highlight_check()
             over = self.is_game_over()
@@ -698,6 +716,7 @@ class Chess:
         new_square = self.squares[new_rank][new_file]
         new_square.place_piece(piece)
         piece.move(new_rank, new_file)
+        self.piece_just_moved = piece
 
     def capture_piece(self, piece):
         current_square = self.squares[piece.rank][piece.file]
@@ -885,6 +904,60 @@ class Chess:
         sync_windows()
         self.parent_root.bind('<Configure>', sync_windows)
 
+    def generate_fen_notation(self):
+        fen_notation = []
+        board_notation = []
+        for rank in self.squares:
+            rank_notation = ''
+            empty_squares_run = 0
+            for file in rank:
+                piece = file.occupying_piece
+                if piece is None:
+                    empty_squares_run += 1
+                else:
+                    if empty_squares_run != 0:
+                        rank_notation += str(empty_squares_run)
+                    empty_squares_run = 0
+                    piece_letter = Chess.PIECE_TO_ASCII[type(piece)]
+                    if piece.team is Team.WHITE:
+                        piece_letter = piece_letter.upper()
+                    elif piece.team is Team.BLACK:
+                        piece_letter = piece_letter.lower()
+                    rank_notation += piece_letter
+            if empty_squares_run != 0:
+                rank_notation += str(empty_squares_run)
+            board_notation.append(rank_notation)
+        fen_notation.append('/'.join(board_notation))
+        fen_notation.append(self.current_player.name.lower()[0])
+        castling_rights = ''
+        kings = [piece for piece in self.pieces if isinstance(piece, King)]
+        kings.sort(key=lambda p: p.team.name, reverse=True)
+        for king in kings:
+            if king is None:
+                continue
+            if not king.has_moved:
+                king_rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.team is king.team]
+                for rook in king_rooks:
+                    if not rook.has_moved and rook.file == 7:
+                        castling_rights += 'K' if king.team is Team.WHITE else 'k'
+                    elif not rook.has_moved and rook.file == 0:
+                        castling_rights += 'Q' if king.team is Team.WHITE else 'q'
+        if not castling_rights:
+            castling_rights = '-'
+        fen_notation.append(castling_rights)
+        en_passant_square = '-'
+        if isinstance(self.piece_just_moved, Pawn):
+            if self.piece_just_moved.has_just_moved_double:
+                if self.piece_just_moved.team is Team.WHITE:
+                    r = self.piece_just_moved.rank - 1
+                else:
+                    r = Chess.RANKS - self.piece_just_moved.rank + 1
+                en_passant_square = f'{chr(97+self.piece_just_moved.file)}{r}'
+        fen_notation.append(en_passant_square)
+        fen_notation.append(str(self.halfmove_clock))
+        fen_notation.append(str(self.fullmove_number))
+        return ' '.join(fen_notation)
+
 
 if __name__ == '__main__':
     root = tk.Tk()
@@ -893,7 +966,6 @@ if __name__ == '__main__':
     chess_frame = tk.Frame(root)
     chess = Chess(chess_frame, 'assets/chess/squares.png', False)
     # Debug, remember to remove
-    # root.bind('<Return>', lambda *_: chess.change_player())
-    # root.bind('<Control-r>', lambda *_: chess.reset_classic_setup())
+    # root.bind('<Return>', lambda *_: chess.generate_fen_notation())
     chess_frame.grid(row=0, column=0)
     root.mainloop()
