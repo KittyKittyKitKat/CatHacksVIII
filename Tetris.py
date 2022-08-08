@@ -318,6 +318,8 @@ class Tetris:
         self.level_label = tk.Label(self.score_frame)
         self.goal_label = tk.Label(self.score_frame)
         self.pause_button = tk.Button(self.score_frame)
+        self.music_button = tk.Button(self.score_frame)
+        self.sound_button = tk.Button(self.score_frame)
         self.texts = {}
         self.lock_time = 500
         self.game_started = False
@@ -426,9 +428,26 @@ class Tetris:
         self.pause_button.config(
             bg='black',
             bd=0,
-            relief=tk.FLAT,
-            highlightthickness=0,
-            activebackground='black'
+            highlightthickness=Tetris.BORDER_WIDTH,
+            activebackground='black',
+            height=2*Square.SQUARE_SIZE//3,
+            width=2*Square.SQUARE_SIZE//3,
+        )
+        self.sound_button.config(
+            bg='black',
+            bd=0,
+            highlightthickness=Tetris.BORDER_WIDTH,
+            activebackground='black',
+            height=2*Square.SQUARE_SIZE//3,
+            width=2*Square.SQUARE_SIZE//3,
+        )
+        self.music_button.config(
+            bg='black',
+            bd=0,
+            highlightthickness=Tetris.BORDER_WIDTH,
+            activebackground='black',
+            height=2*Square.SQUARE_SIZE//3,
+            width=2*Square.SQUARE_SIZE//3,
         )
 
         self.parent.grid_propagate(False)
@@ -489,6 +508,10 @@ class Tetris:
         goal_text = self._make_text_label(self.score_frame, 'GOAL:', Tetris.UI_FONT_SIZE)
         self._make_text_label(self.score_frame, '\u23f8', int(Tetris.UI_FONT_SIZE*1.5), symbol=True)
         self._make_text_label(self.score_frame, '\u23f5', int(Tetris.UI_FONT_SIZE*1.5), symbol=True)
+        self._make_text_label(self.score_frame, '\U0001D195', int(Tetris.UI_FONT_SIZE*3), symbol=True)
+        self._make_text_label(self.score_frame, '\U0001D194', int(Tetris.UI_FONT_SIZE*3), symbol=True)
+        self._make_text_label(self.score_frame, '\U0001F507', Tetris.UI_FONT_SIZE, symbol=True)
+        self._make_text_label(self.score_frame, '\U0001F50A', Tetris.UI_FONT_SIZE, symbol=True)
 
         score_text.grid(
             row=0,
@@ -519,13 +542,17 @@ class Tetris:
             pady=Tetris.UI_INNER_PADDING
         )
         self.pause_button.config(image=self.texts['\u23f8'], command=self.pause_game)
+        self.music_button.config(image=self.texts['\U0001D195'], command=self.music_toggle)
+        self.sound_button.config(image=self.texts['\U0001F50A'], command=self.sound_toggle)
         self.score_label.grid(row=0, column=1, sticky=tk.W)
         self.lines_label.grid(row=1, column=1, sticky=tk.W)
         self.level_label.grid(row=2, column=1, sticky=tk.W)
         self.goal_label.grid(row=3, column=1, sticky=tk.W)
 
         if self.allow_pausing:
-            self.pause_button.grid(row=0, column=3, sticky=tk.NE, rowspan=2, padx=Tetris.UI_INNER_PADDING, pady=Tetris.UI_INNER_PADDING)
+            self.pause_button.grid(row=0, column=3, rowspan=1, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=(Tetris.UI_INNER_PADDING, 0))
+        self.music_button.grid(row=1, column=3, rowspan=2, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=Tetris.UI_INNER_PADDING)
+        self.sound_button.grid(row=3, column=3, rowspan=1, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=(0, Tetris.UI_INNER_PADDING))
 
         self.score_frame.grid(row=4, column=int(not self.ui_on_right))
 
@@ -614,10 +641,11 @@ class Tetris:
                 fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
             else:
                 fnt = ImageFont.truetype('assets/Symbola.ttf', font_size)
-            size = fnt.getsize(text)
-            text_img = Image.new('RGBA', size, (0, 0, 0))
+            size = fnt.getbbox(text)
+            text_img = Image.new('RGBA', (size[2], size[3]), (0, 0, 0, 0))
             d = ImageDraw.Draw(text_img, 'RGBA')
             d.text((0, 0), text, font=fnt)
+            text_img = text_img.crop(text_img.getbbox())
             text_tk = ImageTk.PhotoImage(text_img)
             self.texts[text] = text_tk
         else:
@@ -1120,6 +1148,24 @@ class Tetris:
                 return 10
             else:
                 return 10 * self.level
+
+    def sound_toggle(self):
+        if self.move_channel.get_volume() == 0:
+            self.sound_button.config(image=self.texts['\U0001F50A'])
+            self.move_channel.set_volume(0.4)
+            self.line_channel.set_volume(0.3)
+        else:
+            self.move_channel.set_volume(0)
+            self.line_channel.set_volume(0)
+            self.sound_button.config(image=self.texts['\U0001F507'])
+
+    def music_toggle(self):
+        if self.music_channel.get_volume() == 0:
+            self.music_button.config(image=self.texts['\U0001D195'])
+            self.music_channel.set_volume(0.1)
+        else:
+            self.music_channel.set_volume(0)
+            self.music_button.config(image=self.texts['\U0001D194'])
 
     def start_up(self):
         start_up_root = tk.Toplevel()
