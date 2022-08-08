@@ -12,8 +12,8 @@ class GameState(Enum):
     PAUSED = auto()
     CHECKMATE = auto()
     STALEMATE = auto()
-    INSUFFICIENT_MATERIAL = auto() #TODO
-    THREEFOLD_REPETITION = auto() #TODO: FEN notation check
+    INSUFFICIENT_MATERIAL = auto()
+    THREEFOLD_REPETITION = auto()
     FIFTY_MOVE = auto()
     MUTUAL_DRAW = auto()
     RESIGNED = auto()
@@ -857,6 +857,29 @@ class Chess:
                 self.last_moves[8].split()[:4]
             ):
             self.game_state = GameState.THREEFOLD_REPETITION
+
+        insufficient_material_cases = [
+            {King},
+            {King, Bishop},
+            {King, Knight}
+        ]
+        white_pieces = [type(piece) for piece in self.pieces if piece.team is Team.WHITE]
+        black_pieces = [type(piece) for piece in self.pieces if piece.team is Team.BLACK]
+        if Pawn not in white_pieces and Pawn not in black_pieces:
+            if len(white_pieces) <= 2 and len(black_pieces) <= 2:
+                if set(white_pieces) in insufficient_material_cases and set(black_pieces) in insufficient_material_cases:
+                    self.game_state = GameState.INSUFFICIENT_MATERIAL
+            elif white_pieces == [King] and (
+                    sorted(black_pieces, key=lambda t: t.__name__) ==
+                    sorted([King, Knight, Knight], key=lambda t: t.__name__)
+                ):
+                self.game_state = GameState.INSUFFICIENT_MATERIAL
+            elif black_pieces == [King] and (
+                    sorted(white_pieces, key=lambda t: t.__name__) ==
+                    sorted([King, Knight, Knight], key=lambda t: t.__name__)
+                ):
+                self.game_state = GameState.INSUFFICIENT_MATERIAL
+
         if self.game_state not in (GameState.PLAYING, GameState.PAUSED):
             self.game_over_screen()
             return True
@@ -883,6 +906,8 @@ class Chess:
                 text = 'Draw: Fifty Move Rule'
             case GameState.THREEFOLD_REPETITION:
                 text = 'Draw: By Repetition'
+            case GameState.INSUFFICIENT_MATERIAL:
+                text = 'Draw: Insufficient Material'
             case _:
                 text = 'Game Over'
         game_over_frame = tk.Frame(
@@ -1042,7 +1067,5 @@ if __name__ == '__main__':
     root.title('Chess')
     chess_frame = tk.Frame(root)
     chess = Chess(chess_frame, 'assets/chess/squares.png', False)
-    # Debug, remember to remove
-    # root.bind('<Return>', lambda *_: chess.generate_fen_notation())
     chess_frame.grid(row=0, column=0)
     root.mainloop()
