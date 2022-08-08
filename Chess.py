@@ -112,9 +112,6 @@ class Piece:
         if d_rank > 0 and d_file == 0:
             return 1, 0
 
-    def mouse_click_handler(self, event):
-        return (self.rank, self.file)
-
     def get_team_king(self):
         for piece in self.chess_board.pieces:
             if isinstance(piece, King) and piece.team is self.team:
@@ -406,13 +403,15 @@ class Square(tk.Label):
 class Chess:
     RANKS = 8
     FILES = 8
-    BORDER_WIDTH=2
+    BORDER_WIDTH = 2
 
     def __init__(self, parent, square_sheet, flip_after_move):
         self.parent = parent
+        self.parent_root = self.parent.winfo_toplevel()
         self.squares = []
         self.pieces = []
         self.current_player = Team.WHITE
+        self.resigned_player = None
         self.flip_after_move = flip_after_move
         self.board_flipped = False
         self.selected_piece = None
@@ -425,8 +424,8 @@ class Chess:
         spritesheet = Image.open(square_sheet)
         self.LIGHT_SQUARE_IMAGE = spritesheet.crop((0, 0, 64, 64))
         self.DARK_SQUARE_IMAGE = spritesheet.crop((64, 0, 128, 64))
-        self.font_colour = self.DARK_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
-        self.bg_colour = self.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        self.dark_colour = self.DARK_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
+        self.light_colour = self.LIGHT_SQUARE_IMAGE.copy().convert('RGB').resize((1, 1), resample=0).getpixel((0, 0))
         self._config_widgets()
         self.set_up_board()
         self.create_classic_setup()
@@ -434,19 +433,23 @@ class Chess:
     def _config_widgets(self):
         self.parent.grid_propagate(False)
         self.parent.config(
-            height=Square.SQUARE_SIZE*Chess.RANKS+2*self.BORDER_WIDTH,
-            width=Square.SQUARE_SIZE*Chess.FILES+2*self.BORDER_WIDTH,
+            height=Square.SQUARE_SIZE*Chess.RANKS+2*Chess.BORDER_WIDTH,
+            width=Square.SQUARE_SIZE*Chess.FILES+2*Chess.BORDER_WIDTH,
             highlightbackground='white',
-            highlightthickness=self.BORDER_WIDTH
+            highlightthickness=Chess.BORDER_WIDTH
         )
 
-    def _make_text_label(self, parent, text, font_size):
+    def _make_text_label(self, parent, text, font_size, flip_colours=False, symbol=False):
         if text not in self.texts:
-            fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+            if not symbol:
+                fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+            else:
+                fnt = ImageFont.truetype('assets/Symbola.ttf', font_size)
             size = fnt.getsize(text)
-            text_img = Image.new('RGBA', size, self.bg_colour)
+            bg, fg = (self.light_colour, self.dark_colour) if not flip_colours else (self.dark_colour, self.light_colour)
+            text_img = Image.new('RGBA', size, bg)
             d = ImageDraw.Draw(text_img, 'RGBA')
-            d.text((0, 0), text, font=fnt, fill=self.font_colour)
+            d.text((0, 0), text, font=fnt, fill=fg)
             text_tk = ImageTk.PhotoImage(text_img)
             self.texts[text] = text_tk
         else:
@@ -455,15 +458,16 @@ class Chess:
         return text_label
 
     def set_up_board(self):
-        for rank in range(self.RANKS):
+        for rank in range(Chess.RANKS):
             light = not (rank % 2)
             row = []
-            for file in range(self.FILES):
+            for file in range(Chess.FILES):
                 colour = self.LIGHT_SQUARE_IMAGE if light else self.DARK_SQUARE_IMAGE
                 square = Square(self.parent, colour, rank, file)
                 square.add_text(rank, file, self)
                 light = not light
-                square.bind('<Button-1>', self.click_handler)
+                square.bind('<Button-1>', self.left_click_handler)
+                square.bind('<Button-3>', self.right_click_handler)
                 square.grid(row=rank, column=file)
                 row.append(square)
             self.squares.append(row)
@@ -528,6 +532,7 @@ class Chess:
             self.capture_piece(piece)
         self.create_classic_setup()
         self.current_player = Team.WHITE
+        self.resigned_player = None
         self.game_state = GameState.PLAYING
         self.selected_piece = None
         self.pawn_captured_en_passant = None
@@ -548,9 +553,7 @@ class Chess:
                 else:
                     square.grid(row=square.rank, column=square.file)
 
-    def click_handler(self, event):
-        if self.game_state is not GameState.PLAYING:
-            return
+    def _coords_to_square(self, event):
         x = event.x_root - self.parent.winfo_rootx()
         y = event.y_root - self.parent.winfo_rooty()
         rank = (y // Square.SQUARE_SIZE) % 8
@@ -558,8 +561,13 @@ class Chess:
         if self.board_flipped:
             rank = Chess.RANKS - rank - 1
             file = Chess.FILES - file - 1
-        square_clicked = self.squares[rank][file]
+        return rank, file
 
+    def left_click_handler(self, event):
+        if self.game_state is not GameState.PLAYING:
+            return
+        rank, file = self._coords_to_square(event)
+        square_clicked = self.squares[rank][file]
         if self.selected_piece is None:
             if square_clicked.occupying_piece is not None:
                 if square_clicked.occupying_piece.team is not self.current_player:
@@ -582,6 +590,72 @@ class Chess:
                     self.highlight_check()
                     return
             self.player_move(rank, file)
+
+    def right_click_handler(self, event):
+        if self.game_state is not GameState.PLAYING:
+            return
+        rank, file = self._coords_to_square(event)
+        piece_clicked = self.squares[rank][file].occupying_piece
+        if not isinstance(piece_clicked, King):
+            return
+        self.pause_toggle()
+        menu_root = tk.Toplevel()
+        menu_root.resizable(0, 0)
+        menu_root.wm_attributes('-type', 'splash')
+        menu_frame = tk.Frame(
+            menu_root,
+            height=Square.SQUARE_SIZE + 2 * Chess.BORDER_WIDTH,
+            width=Square.SQUARE_SIZE * 3 + 2 * Chess.BORDER_WIDTH,
+        )
+        text_index = {
+            0: ('\u2691', True),
+            1: ('\u00bd', False),
+            2: ('\u2716', True)
+        }
+
+        def sync_windows(event=None):
+            menu_root_x = self.parent_root.winfo_x() + file * Square.SQUARE_SIZE #self.parent_root.winfo_width()//2
+            menu_root_y = self.parent_root.winfo_y() + rank * Square.SQUARE_SIZE #self.parent_root.winfo_height()//2
+            parent_lower_y = self.parent_root.winfo_y() + self.parent_root.winfo_height()
+            menu_root_lower_y = menu_root.winfo_height() + menu_root_y
+            y_offset = min(0, parent_lower_y - menu_root_lower_y)
+            menu_root.geometry(f'+{menu_root_x}+{menu_root_y+y_offset}')
+
+        def menu_dispatch(key):
+            self.pause_toggle()
+            self.parent_root.unbind('<Configure>')
+            menu_root.grab_release()
+            menu_root.destroy()
+            if key == 0:
+                self.game_state = GameState.RESIGNED
+                self.resigned_player = piece_clicked.team
+                self.game_over_screen()
+            elif key == 1:
+                self.game_state = GameState.MUTUAL_DRAW
+                self.game_over_screen()
+
+        max_width = 0
+        for i in range(3):
+            text, symbol = text_index[i]
+            option = self._make_text_label(menu_frame, text, 30, i % 2 != 0, symbol=symbol)
+            max_width = max(max_width, option.winfo_reqwidth())
+            option.config(
+                highlightbackground='white',
+                highlightthickness=Chess.BORDER_WIDTH,
+                bg='#{0:02x}{1:02x}{2:02x}'.format(*self.dark_colour if i % 2 != 0 else self.light_colour)
+            )
+            option.bind('<Button-1>', lambda event, key=i: menu_dispatch(key))
+            option.grid(row=i, column=0)
+
+        for child in menu_frame.grid_slaves():
+            child.config(width=max_width+Chess.BORDER_WIDTH*2, height=child.winfo_reqheight()+Chess.BORDER_WIDTH*2)
+
+        menu_frame.grid(row=0, column=0)
+        menu_root.wait_visibility()
+        menu_root.grab_set()
+        menu_root.transient(self.parent_root)
+        sync_windows()
+        self.parent_root.bind('<Configure>', sync_windows)
 
     def change_player(self, override=None):
         if override is not None:
@@ -631,16 +705,15 @@ class Chess:
         self.pieces.remove(piece)
 
     def promote_piece(self, piece):
-        self.grey_out_board()
-        parent_root = self.parent.winfo_toplevel()
+        self.pause_toggle()
         promote_root = tk.Toplevel()
         promote_root.resizable(0, 0)
         promote_root.wm_attributes('-type', 'splash')
         promotion_frame = tk.Frame(
             promote_root,
-            height=Square.SQUARE_SIZE + 2 * self.BORDER_WIDTH,
-            width=Square.SQUARE_SIZE*4 + 2 * self.BORDER_WIDTH,
-            highlightthickness=self.BORDER_WIDTH,
+            height=Square.SQUARE_SIZE + 2 * Chess.BORDER_WIDTH,
+            width=Square.SQUARE_SIZE*4 + 2 * Chess.BORDER_WIDTH,
+            highlightthickness=Chess.BORDER_WIDTH,
             highlightbackground='white'
         )
         squares = []
@@ -652,8 +725,8 @@ class Chess:
         }
 
         def sync_windows(event=None):
-            promote_root_x = parent_root.winfo_x() + parent_root.winfo_width()//4
-            promote_root_y = parent_root.winfo_y() + parent_root.winfo_height()//2 - Square.SQUARE_SIZE//2
+            promote_root_x = self.parent_root.winfo_x() + self.parent_root.winfo_width()//4
+            promote_root_y = self.parent_root.winfo_y() + self.parent_root.winfo_height()//2 - Square.SQUARE_SIZE//2
             promote_root.geometry(f'+{promote_root_x}+{promote_root_y}')
 
         def hover_handler(event):
@@ -669,7 +742,7 @@ class Chess:
             squares[file].highlight(self.highlight_move_colour)
 
         def click_handler(square):
-            parent_root.unbind('<Configure>')
+            self.parent_root.unbind('<Configure>')
             promotion = piece_index[squares.index(square)]
             self.capture_piece(piece)
             self.create_piece(piece.rank, piece.file, promotion, piece.team)
@@ -681,7 +754,7 @@ class Chess:
 
         for i in range(4):
             colour = self.DARK_SQUARE_IMAGE if i % 2 else self.LIGHT_SQUARE_IMAGE
-            square = Square(promotion_frame, colour)
+            square = Square(promotion_frame, colour, None, None)
             piece_cls = piece_index[i]
             images = PieceImage[piece_cls.__name__.upper()].value
             image = images[0] if piece.team is Team.WHITE else images[1]
@@ -695,9 +768,9 @@ class Chess:
         promote_root.bind('<Motion>', hover_handler)
         promote_root.wait_visibility()
         promote_root.grab_set()
-        promote_root.transient(parent_root)
+        promote_root.transient(self.parent_root)
         sync_windows()
-        parent_root.bind('<Configure>', sync_windows)
+        self.parent_root.bind('<Configure>', sync_windows)
 
     def highlight_available_moves(self):
         if self.selected_piece is None:
@@ -722,6 +795,14 @@ class Chess:
                 king_square = self.squares[king.rank][king.file]
                 king_square.highlight(self.highlight_check_colour)
 
+    def pause_toggle(self):
+        if self.game_state is GameState.PAUSED:
+            self.reset_board_colouring()
+            self.game_state = GameState.PLAYING
+        else:
+            self.grey_out_board()
+            self.game_state = GameState.PAUSED
+
     def is_game_over(self):
         if (king := self.get_current_king()) is None:
             return
@@ -744,28 +825,34 @@ class Chess:
         return False
 
     def game_over_screen(self):
-        parent_root = self.parent.winfo_toplevel()
+        self.parent_root = self.parent.winfo_toplevel()
         game_over_root = tk.Toplevel()
         game_over_root.resizable(0, 0)
         game_over_root.wm_attributes('-type', 'splash')
-        border_colour = '#'+''.join('{:02X}'.format(c) for c in self.font_colour)
-        bg_colour = '#'+''.join('{:02X}'.format(c) for c in self.bg_colour)
+        border_colour = '#'+''.join('{:02X}'.format(c) for c in self.dark_colour)
+        bg_colour = '#'+''.join('{:02X}'.format(c) for c in self.light_colour)
         self.change_player()
         match self.game_state:
             case GameState.CHECKMATE:
                 text = f'Checkmate: {self.current_player.name.title()} wins'
             case GameState.STALEMATE:
                 text = 'Draw: Stalemate'
+            case GameState.RESIGNED:
+                text = f'{self.resigned_player.name.title()} resigns'
+            case GameState.MUTUAL_DRAW:
+                text = 'Draw: By Agreement'
+            case _:
+                text = 'Game Over'
         game_over_frame = tk.Frame(
             game_over_root,
             bg=bg_colour,
-            highlightthickness=self.BORDER_WIDTH,
+            highlightthickness=Chess.BORDER_WIDTH,
             highlightbackground=border_colour
         )
         game_over_text = self._make_text_label(game_over_frame, text, 20)
         play_again_text = self._make_text_label(game_over_frame, 'Play Again?', 18)
-        play_again_text_height = int(parent_root.call(play_again_text.cget('image'), 'cget', '-height'))
-        play_again_text_width = int(parent_root.call(play_again_text.cget('image'), 'cget', '-width'))
+        play_again_text_height = int(self.parent_root.call(play_again_text.cget('image'), 'cget', '-height'))
+        play_again_text_width = int(self.parent_root.call(play_again_text.cget('image'), 'cget', '-width'))
         play_again_button = tk.Button(
             game_over_frame,
             bg=bg_colour,
@@ -773,17 +860,17 @@ class Chess:
             width=play_again_text_width+8,
             image=play_again_text.cget('image'),
             bd=0,
-            highlightthickness=self.BORDER_WIDTH,
+            highlightthickness=Chess.BORDER_WIDTH,
             highlightbackground=border_colour
         )
 
         def sync_windows(event=None):
-            game_over_root_x = parent_root.winfo_x() + (parent_root.winfo_width() - game_over_root.winfo_width())//2
-            game_over_root_y = parent_root.winfo_y() + (parent_root.winfo_height() - game_over_root.winfo_height())//2
+            game_over_root_x = self.parent_root.winfo_x() + (self.parent_root.winfo_width() - game_over_root.winfo_width())//2
+            game_over_root_y = self.parent_root.winfo_y() + (self.parent_root.winfo_height() - game_over_root.winfo_height())//2
             game_over_root.geometry(f'+{game_over_root_x}+{game_over_root_y}')
 
         def play_again_callback():
-            parent_root.unbind('<Configure>')
+            self.parent_root.unbind('<Configure>')
             game_over_root.grab_release()
             game_over_root.destroy()
             self.reset_classic_setup()
@@ -794,9 +881,9 @@ class Chess:
         game_over_frame.grid(row=0, column=0)
         game_over_root.wait_visibility()
         game_over_root.grab_set()
-        game_over_root.transient(parent_root)
+        game_over_root.transient(self.parent_root)
         sync_windows()
-        parent_root.bind('<Configure>', sync_windows)
+        self.parent_root.bind('<Configure>', sync_windows)
 
 
 if __name__ == '__main__':
