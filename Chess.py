@@ -143,6 +143,8 @@ class King(Piece):
             any(filter(lambda p: not p.has_moved, team_rooks)) and
             not (check_check and self.is_checked())
         )
+        self.has_just_castled = False
+        self.chess_board.castling_rook = None
         for i in range(1, 3 if can_try_castling else 2):
             test_rank = self.rank + i * dr
             test_file = self.file + i * df
@@ -152,19 +154,19 @@ class King(Piece):
                 if occupying_piece is not None and occupying_piece.team is self.team:
                     return False
                 if i == 2:
-                    self.chess_board.castling_rook = None
                     for rook in team_rooks:
                         if not rook.has_moved:
                             if rook.file < self.file and df == -1:
                                 self.chess_board.castling_rook = rook
+                                self.has_just_castled = True
                             elif rook.file > self.file and df == 1:
                                 self.chess_board.castling_rook = rook
+                                self.has_just_castled = True
                             continue
                         if rook.file > self.file and df != -1:
                             return False
                         if rook.file < self.file and df != 1:
                             return False
-                    self.has_just_castled = True
                 return True
             elif self.chess_board.get_piece_at_pos(test_rank, test_file) is not None:
                 return False
