@@ -295,7 +295,8 @@ class Tetris:
                  music_channel,
                  move_channel,
                  line_channel,
-                 start_menu
+                 start_menu,
+                 allow_play_again
         ):
         self.parent = parent
         self.ui_on_right = ui_on_right
@@ -309,6 +310,7 @@ class Tetris:
         self.move_channel = move_channel
         self.line_channel = line_channel
         self.start_menu = start_menu
+        self.allow_play_again = allow_play_again
         self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
@@ -370,8 +372,6 @@ class Tetris:
         self.line_channel.set_volume(0.3)
         if self.start_menu:
             self.start_up()
-        else:
-            self.play_game()
 
     def _config_widgets(self):
         self.parent.config(
@@ -1336,7 +1336,8 @@ class Tetris:
 
         play_again_button.config(command=play_again_callback)
         game_over_text.grid(row=0, column=0, pady=10, padx=10)
-        play_again_button.grid(row=1, column=0, pady=10, padx=10)
+        if self.allow_play_again:
+            play_again_button.grid(row=1, column=0, pady=10, padx=10)
         game_over_frame.grid(row=0, column=0)
         game_over_root.transient(self.parent_root)
         sync_windows()
@@ -1378,8 +1379,6 @@ class Tetris:
         self.show_goal()
         if self.start_menu:
             self.start_up()
-        else:
-            self.play_game()
 
 
 if __name__ == '__main__':
@@ -1413,7 +1412,8 @@ if __name__ == '__main__':
         music_channel=tetris_music,
         move_channel=tetris_move,
         line_channel=tetris_line,
-        start_menu=True
+        start_menu=True,
+        allow_play_again=True
     )
     tetris_frame.grid(row=0, column=0)
     root.mainloop()
