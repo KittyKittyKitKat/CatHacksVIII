@@ -108,6 +108,8 @@ class Sounds:
     HOLD = 'assets/tetris/audio/hold.wav'
     CLEAR = 'assets/tetris/audio/clear.wav'
     TETRIS = 'assets/tetris/audio/tetris.wav'
+    HIGH_ALERT = 'assets/tetris/audio/high_alert.wav'
+    LOW_ALERT = 'assets/tetris/audio/low_alert.wav'
 
     def __getattribute__(self, name):
         return mixer.Sound(file=super(type(Sounds), self).__getattribute__(name))
@@ -1003,6 +1005,10 @@ class Tetris:
     def queue_garbage(self, lines):
         self.queued_garbage += lines
         self.queued_garbage = min(self.queued_garbage, Tetris.TOTAL_HEIGHT)
+        if self.queued_garbage > Tetris.ROWS // 2:
+            self.line_channel.play(Sounds.HIGH_ALERT)
+        elif self.queued_garbage != 0:
+            self.line_channel.play(Sounds.LOW_ALERT)
         curr_row = Tetris.TOTAL_HEIGHT - 1
         for _ in range(self.queued_garbage):
             mino = Mino(TetriminoImage.GARBAGE.value, True)
