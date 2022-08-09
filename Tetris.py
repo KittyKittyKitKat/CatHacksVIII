@@ -294,7 +294,8 @@ class Tetris:
                  allow_pausing,
                  music_channel,
                  move_channel,
-                 line_channel
+                 line_channel,
+                 start_menu
         ):
         self.parent = parent
         self.ui_on_right = ui_on_right
@@ -307,6 +308,7 @@ class Tetris:
         self.music_channel = music_channel
         self.move_channel = move_channel
         self.line_channel = line_channel
+        self.start_menu = start_menu
         self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
@@ -366,7 +368,10 @@ class Tetris:
         self.music_channel.set_volume(0.1)
         self.move_channel.set_volume(0.4)
         self.line_channel.set_volume(0.3)
-        self.start_up()
+        if self.start_menu:
+            self.start_up()
+        else:
+            self.play_game()
 
     def _config_widgets(self):
         self.parent.config(
@@ -571,9 +576,8 @@ class Tetris:
                 raise KeyError(
                     f'Invalid keybinding name: {key}. Must be one of: {", ".join(valid_binding_names)}'
                 )
-        self.parent.bind('<KeyPress>', self._keypress_dispatch)
-        self.parent.bind('<KeyRelease>', self._keyrelease_dispatch)
-        self.parent.focus_set()
+        self.parent_root.bind('<KeyPress>', self._keypress_dispatch, add='+')
+        self.parent_root.bind('<KeyRelease>', self._keyrelease_dispatch, add='+')
 
     def _uncover_playfield(self):
         for row in range(Tetris.ROWS+Tetris.BUFFER_ROWS):
@@ -1372,7 +1376,10 @@ class Tetris:
         self.show_lines()
         self.show_level()
         self.show_goal()
-        self.start_up()
+        if self.start_menu:
+            self.start_up()
+        else:
+            self.play_game()
 
 
 if __name__ == '__main__':
@@ -1405,7 +1412,8 @@ if __name__ == '__main__':
         allow_pausing=True,
         music_channel=tetris_music,
         move_channel=tetris_move,
-        line_channel=tetris_line
+        line_channel=tetris_line,
+        start_menu=True
     )
     tetris_frame.grid(row=0, column=0)
     root.mainloop()
