@@ -276,6 +276,7 @@ class Tetris:
     NEXT_ROWS =  18
     NEXT_PIECES = 6
     UI_COLUMNS = 4
+    GARBAGE_COLUMNS = 1
     UI_FONT_SIZE = 20
     BORDER_WIDTH = 2
     UI_INNER_PADDING = 6
@@ -285,7 +286,7 @@ class Tetris:
 
     def __init__(self,
                  parent,
-                 ui_on_right,
+                 mirror_ui,
                  ghost_piece,
                  placement_mode,
                  starting_level,
@@ -299,7 +300,7 @@ class Tetris:
                  allow_play_again
         ):
         self.parent = parent
-        self.ui_on_right = ui_on_right
+        self.mirror_ui = mirror_ui
         self.ghost_piece = ghost_piece
         self.placement_mode = placement_mode
         self.starting_level = starting_level
@@ -317,6 +318,7 @@ class Tetris:
         self.next_frame = tk.Frame(self.parent)
         self.hold_frame = tk.Frame(self.parent)
         self.score_frame = tk.Frame(self.parent)
+        self.garbage_frame = tk.Frame(self.parent)
         self.score_label = tk.Label(self.score_frame)
         self.lines_label = tk.Label(self.score_frame)
         self.level_label = tk.Label(self.score_frame)
@@ -354,12 +356,14 @@ class Tetris:
         self.playfield = []
         self.next_area = []
         self.hold_area = []
+        self.garbage_area = []
         self.empty_image = Image.new('RGBA', (Square.SQUARE_SIZE, Square.SQUARE_SIZE), (0, 0, 0))
         self._config_widgets()
         self._set_up_playfield()
         self._set_up_next_area()
         self._set_up_hold_area()
         self._set_up_score_area()
+        self._set_up_garbage_area()
         self._set_up_keybindings()
         self.show_score()
         self.show_lines()
@@ -377,7 +381,7 @@ class Tetris:
         self.parent.config(
             bg='black',
             height=Square.SQUARE_SIZE*Tetris.TOTAL_HEIGHT+2*Tetris.BORDER_WIDTH+Tetris.SKYLINE_VISIBILITY,
-            width=Square.SQUARE_SIZE*(Tetris.COLUMNS+Tetris.UI_COLUMNS)+4*Tetris.BORDER_WIDTH+2*Tetris.UI_INNER_PADDING,
+            width=Square.SQUARE_SIZE*(Tetris.COLUMNS+Tetris.UI_COLUMNS+Tetris.GARBAGE_COLUMNS)+6*Tetris.BORDER_WIDTH+2*Tetris.UI_INNER_PADDING,
         )
         self.game_frame.config(
             bg='black',
@@ -411,6 +415,13 @@ class Tetris:
             bg='black',
             width=Square.SQUARE_SIZE*Tetris.COLUMNS+2*Tetris.BORDER_WIDTH,
             height=Square.SQUARE_SIZE*(Tetris.TOTAL_HEIGHT-Tetris.ROWS),
+            highlightbackground='white',
+            highlightthickness=Tetris.BORDER_WIDTH
+        )
+        self.garbage_frame.config(
+            bg='black',
+            width=Square.SQUARE_SIZE*Tetris.GARBAGE_COLUMNS+2*Tetris.BORDER_WIDTH,
+            height=Square.SQUARE_SIZE*Tetris.TOTAL_HEIGHT+2*Tetris.BORDER_WIDTH+Tetris.SKYLINE_VISIBILITY,
             highlightbackground='white',
             highlightthickness=Tetris.BORDER_WIDTH
         )
@@ -460,6 +471,7 @@ class Tetris:
         self.next_frame.grid_propagate(False)
         self.hold_frame.grid_propagate(False)
         self.score_frame.grid_propagate(False)
+        self.garbage_frame.grid_propagate(False)
         self.next_frame.columnconfigure(0, weight=1)
         self.next_frame.columnconfigure(4, weight=1)
         self.hold_frame.columnconfigure(0, weight=1)
@@ -479,8 +491,8 @@ class Tetris:
                     square.grid(row=row-Tetris.ROWS+1, column=col, sticky=tk.N)
                 well_row.append(square)
             self.playfield.append(well_row)
-        self.game_frame.grid(row=0, column=int(not self.ui_on_right), rowspan=4)
-        self.ui_frame.grid(row=0, column=int(self.ui_on_right), rowspan=4)
+        self.game_frame.grid(row=0, column=1, rowspan=4)
+        self.ui_frame.grid(row=0, column=int(not self.mirror_ui)*2, rowspan=4)
 
     def _set_up_next_area(self):
         for row in range(Tetris.NEXT_ROWS):
@@ -490,9 +502,9 @@ class Tetris:
                 square.grid(row=row, column=col+1, sticky=tk.W)
                 well_row.append(square)
             self.next_area.append(well_row)
-        self.next_frame.grid(row=3, column=int(self.ui_on_right), rowspan=2)
+        self.next_frame.grid(row=3, column=int(not self.mirror_ui)*2, rowspan=2)
         next_label = self._make_text_label(self.parent, 'NEXT', Tetris.UI_FONT_SIZE)
-        next_label.grid(row=2, column=int(self.ui_on_right), sticky=tk.NS)
+        next_label.grid(row=2, column=int(not self.mirror_ui)*2, sticky=tk.NS)
 
     def _set_up_hold_area(self):
         for row in range(Tetris.HOLD_ROWS):
@@ -502,9 +514,9 @@ class Tetris:
                 square.grid(row=row, column=col+1, sticky=tk.W)
                 well_row.append(square)
             self.hold_area.append(well_row)
-        self.hold_frame.grid(row=1, column=int(self.ui_on_right), sticky=tk.NS)
+        self.hold_frame.grid(row=1, column=int(not self.mirror_ui)*2, sticky=tk.NS)
         hold_label = self._make_text_label(self.parent, 'HOLD', Tetris.UI_FONT_SIZE)
-        hold_label.grid(row=0, column=int(self.ui_on_right))
+        hold_label.grid(row=0, column=int(not self.mirror_ui)*2)
 
     def _set_up_score_area(self):
         score_text = self._make_text_label(self.score_frame, 'SCORE:', Tetris.UI_FONT_SIZE)
@@ -559,7 +571,15 @@ class Tetris:
         self.music_button.grid(row=1, column=3, rowspan=3, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=Tetris.UI_INNER_PADDING)
         self.sound_button.grid(row=4, column=3, rowspan=1, sticky=tk.E, padx=Tetris.UI_INNER_PADDING, pady=(0, Tetris.UI_INNER_PADDING))
 
-        self.score_frame.grid(row=4, column=int(not self.ui_on_right))
+        self.score_frame.grid(row=4, column=1)
+
+    def _set_up_garbage_area(self):
+        for i in range(Tetris.TOTAL_HEIGHT):
+            square = Square(self.garbage_frame, self.empty_image)
+            square.grid(row=i+1, column=0, sticky=tk.S)
+            self.garbage_area.append([square])
+        self.garbage_frame.grid_rowconfigure(0, minsize=Tetris.SKYLINE_VISIBILITY)
+        self.garbage_frame.grid(row=0, column=int(self.mirror_ui)*2, rowspan=5)
 
     def _set_up_keybindings(self):
         valid_binding_names = [
@@ -743,6 +763,8 @@ class Tetris:
     def spawn_tetrimino(self, tetrimino_type):
         if self.game_over.get():
             return
+        if self.queued_garbage:
+            self.add_garbage()
         self.lock_engaged = False
         spawn_pos = self.get_tetrimino_spawn_pos(tetrimino_type)
         self.falling_lowest = spawn_pos[1]
@@ -803,10 +825,8 @@ class Tetris:
                 visible = True
         if not visible:
             self.game_over.set(True)
-        lines_cleared = self.clear_lines()
+        lines_cleared = self.clear_lines(t_spin)
         self.has_held = False
-        if self.queued_garbage:
-            self.add_garbage()
         self.update_score(lines_cleared, t_spin, mini_t_spin)
         self.update_lines_cleared(lines_cleared, t_spin, mini_t_spin)
         if lines_cleared == 4:
@@ -980,6 +1000,15 @@ class Tetris:
         else:
             self.rotation_point = None
 
+    def queue_garbage(self, lines):
+        self.queued_garbage += lines
+        self.queued_garbage = min(self.queued_garbage, Tetris.TOTAL_HEIGHT)
+        curr_row = Tetris.TOTAL_HEIGHT - 1
+        for _ in range(self.queued_garbage):
+            mino = Mino(TetriminoImage.GARBAGE.value, True)
+            self.garbage_area[curr_row][0].place_mino(mino)
+            curr_row -= 1
+
     def add_garbage(self):
         for row in range(Tetris.ROWS+Tetris.BUFFER_ROWS):
             for col in range(Tetris.COLUMNS):
@@ -998,9 +1027,11 @@ class Tetris:
                 if i != empty:
                     mino = Mino(TetriminoImage.GARBAGE.value, True)
                     square.place_mino(mino)
+        for row in self.garbage_area:
+            row[0].remove_mino()
         self.queued_garbage = 0
 
-    def clear_lines(self):
+    def clear_lines(self, t_spin):
         if self.game_over.get():
             return 0
         runs = []
@@ -1032,7 +1063,7 @@ class Tetris:
                             square_below.place_mino(mino)
 
         lines_cleared = sum(runs)
-        if lines_cleared == 4:
+        if lines_cleared == 4 or (lines_cleared == 3 and t_spin):
             self.line_channel.play(Sounds.TETRIS)
         elif lines_cleared > 0:
             self.line_channel.play(Sounds.CLEAR)
@@ -1377,6 +1408,7 @@ class Tetris:
         self.show_lines()
         self.show_level()
         self.show_goal()
+        self.queue_garbage(0)
         if self.start_menu:
             self.start_up()
 
@@ -1402,7 +1434,7 @@ if __name__ == '__main__':
     }
     tetris = Tetris(
         parent=tetris_frame,
-        ui_on_right=True,
+        mirror_ui=False,
         ghost_piece = True,
         placement_mode=PlacementType.EXTENDED,
         starting_level=1,
