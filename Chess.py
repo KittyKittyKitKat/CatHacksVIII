@@ -423,15 +423,17 @@ class Chess:
         Pawn: 'P'
     }
 
-    def __init__(self, parent, square_sheet, flip_after_move, sound_channel, load_position=None):
+    def __init__(self, parent, square_sheet, flip_after_move, sound_channel, allow_play_again, load_position=None):
         self.parent = parent
+        self.square_sheet = square_sheet
+        self.flip_after_move = flip_after_move
+        self.sound_channel = sound_channel
+        self.allow_play_again = allow_play_again
         self.parent_root = self.parent.winfo_toplevel()
         self.squares = []
         self.pieces = []
         self.current_player = Team.WHITE
         self.resigned_player = None
-        self.flip_after_move = flip_after_move
-        self.sound_channel = sound_channel
         self.board_flipped = False
         self.selected_piece = None
         self.pawn_captured_en_passant = None
@@ -954,7 +956,8 @@ class Chess:
 
         play_again_button.config(command=play_again_callback)
         game_over_text.grid(row=0, column=0, pady=10, padx=10)
-        play_again_button.grid(row=1, column=0, pady=10, padx=10)
+        if self.allow_play_again:
+            play_again_button.grid(row=1, column=0, pady=10, padx=10)
         game_over_frame.grid(row=0, column=0)
         game_over_root.wait_visibility()
         game_over_root.grab_set()
@@ -1083,7 +1086,8 @@ if __name__ == '__main__':
         parent=chess_frame,
         square_sheet='assets/chess/squares.png',
         sound_channel=chess_sound,
-        flip_after_move=False
+        flip_after_move=False,
+        allow_play_again=True
     )
     chess_frame.grid(row=0, column=0)
     root.mainloop()
