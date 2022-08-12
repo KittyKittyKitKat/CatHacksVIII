@@ -35,13 +35,11 @@ class Chesstris:
         self.black_lines_cleared_flag_id = self.black_tetris.lines_cleared_flag.trace_add('write', self._black_line_trace)
 
     def _white_line_trace(self, *args):
-        # print(f'White cleared {self.white_tetris.lines_cleared_flag.get()} lines')
         if self.white_tetris.lines_cleared_flag.get() > 0:
             self.chess.change_player(override=Team.WHITE)
             self.swap_games()
 
     def _black_line_trace(self, *args):
-        # print(f'Black cleared {self.black_tetris.lines_cleared_flag.get()} lines')
         if self.black_tetris.lines_cleared_flag.get() > 0:
             self.chess.change_player(override=Team.BLACK)
             self.swap_games()
