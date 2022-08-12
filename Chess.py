@@ -429,6 +429,7 @@ class Chess:
         self.flip_after_move = flip_after_move
         self.sound_channel = sound_channel
         self.allow_play_again = allow_play_again
+        self.move_listener_flag = None
         self.parent_root = self.parent.winfo_toplevel()
         self.squares = []
         self.pieces = []
@@ -732,6 +733,8 @@ class Chess:
             over = self.is_game_over()
             if not over:
                 self.flip_board()
+                if self.move_listener_flag is not None:
+                    self.move_listener_flag.set(self.current_player.name)
 
     def move_piece(self, piece, new_rank, new_file):
         current_square = self.squares[piece.rank][piece.file]

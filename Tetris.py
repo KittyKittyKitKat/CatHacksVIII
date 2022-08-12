@@ -28,6 +28,7 @@ class PlacementType(Enum):
 class GoalType(Enum):
     FIXED = auto()
     VARIABLE = auto()
+    STAGNANT = auto()
 
 
 class TetriminoImage(Enum):
@@ -373,6 +374,7 @@ class Tetris:
         self.show_goal()
         self.lock_trace_id = self.lock_moves.trace_add('write', self._lock_trace)
         self.game_over_trace_id = self.game_over.trace_add('write', self._game_over_trace)
+        self.lines_cleared_flag = None
         self.music_channel.set_volume(0.1)
         self.move_channel.set_volume(0.4)
         self.line_channel.set_volume(0.3)
@@ -728,8 +730,9 @@ class Tetris:
     def show_goal(self):
         goal_text = self._make_text_label(
             self.score_frame,
-            str(self.goal),
-            Tetris.UI_FONT_SIZE
+            str(self.goal if self.goal != float('inf') else '\u2716'),
+            Tetris.UI_FONT_SIZE,
+            symbol=self.goal == float('inf')
         )['image']
         self.goal_label.config(image=goal_text)
 
@@ -1073,6 +1076,8 @@ class Tetris:
             self.line_channel.play(Sounds.CLEAR)
         else:
             self.line_channel.play(Sounds.LOCK)
+        if self.lines_cleared_flag is not None:
+            self.lines_cleared_flag.set(lines_cleared)
         return lines_cleared
 
     def detect_t_spin(self):
@@ -1142,36 +1147,39 @@ class Tetris:
 
     def update_lines_cleared(self, lines, t_spin, mini_t_spin):
         cleared_lines = 0
-        if self.goal_type is GoalType.FIXED:
-            cleared_lines = lines
-        elif self.goal_type is GoalType.VARIABLE:
-            if mini_t_spin:
-                if lines == 0:
-                    cleared_lines = 1
-                elif lines == 1:
-                    cleared_lines = 2
-            elif t_spin:
-                if lines == 0:
-                    cleared_lines = 4
-                elif lines == 1:
-                    cleared_lines = 8
-                elif lines == 2:
-                    cleared_lines = 12
-                elif lines == 3:
-                    cleared_lines = 16
-            else:
-                if lines == 1:
-                    cleared_lines = 1
-                elif lines == 2:
-                    cleared_lines = 3
-                elif lines == 3:
-                    cleared_lines = 5
-                elif lines == 4:
-                    cleared_lines = 8
-        self.lines_cleared += cleared_lines
-        if self.back_to_back and lines != 0:
-            self.lines_cleared *= 1.5
-            self.lines_cleared = int(self.lines_cleared)
+        if self.goal_type is not GoalType.STAGNANT:
+            if self.goal_type is GoalType.FIXED:
+                cleared_lines = lines
+            elif self.goal_type is GoalType.VARIABLE:
+                if mini_t_spin:
+                    if lines == 0:
+                        cleared_lines = 1
+                    elif lines == 1:
+                        cleared_lines = 2
+                elif t_spin:
+                    if lines == 0:
+                        cleared_lines = 4
+                    elif lines == 1:
+                        cleared_lines = 8
+                    elif lines == 2:
+                        cleared_lines = 12
+                    elif lines == 3:
+                        cleared_lines = 16
+                else:
+                    if lines == 1:
+                        cleared_lines = 1
+                    elif lines == 2:
+                        cleared_lines = 3
+                    elif lines == 3:
+                        cleared_lines = 5
+                    elif lines == 4:
+                        cleared_lines = 8
+            self.lines_cleared += cleared_lines
+            if self.back_to_back and lines != 0:
+                self.lines_cleared *= 1.5
+                self.lines_cleared = int(self.lines_cleared)
+        else:
+            self.lines_cleared += lines
         self.show_lines()
         if self.lines_cleared >= self.goal:
             self.level = min(Tetris.MAX_LEVEL, self.level+1)
@@ -1187,6 +1195,8 @@ class Tetris:
                 return 10
             else:
                 return 10 * self.level
+        elif self.goal_type is GoalType.STAGNANT:
+            return float('inf')
 
     def sound_toggle(self):
         if self.move_channel.get_volume() == 0:
