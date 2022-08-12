@@ -652,8 +652,6 @@ class Tetris:
             self.tetrimino_rotate(True)
         elif self.auto_repeat != key and key == self.key_mapping.get('rotate counterclockwise'):
             self.tetrimino_rotate(False)
-        elif key == 'Return':
-            self.game_over.set(True)
         self.auto_repeat = key
 
     def _keyrelease_dispatch(self, event):
