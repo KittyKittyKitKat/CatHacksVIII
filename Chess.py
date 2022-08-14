@@ -423,12 +423,21 @@ class Chess:
         Pawn: 'P'
     }
 
-    def __init__(self, parent, square_sheet, flip_after_move, sound_channel, allow_play_again, load_position=None):
+    def __init__(self,
+                 parent,
+                 square_sheet,
+                 flip_after_move,
+                 sound_channel,
+                 allow_play_again,
+                 show_game_over_screen,
+                 load_position=None
+        ):
         self.parent = parent
         self.square_sheet = square_sheet
         self.flip_after_move = flip_after_move
         self.sound_channel = sound_channel
-        self.allow_play_again = allow_play_again
+        self.allow_play_again = allow_play_again,
+        self.show_game_over_screen = show_game_over_screen
         self.move_listener_flag = None
         self.parent_root = self.parent.winfo_toplevel()
         self.squares = []
@@ -901,6 +910,10 @@ class Chess:
         return False
 
     def game_over_screen(self):
+        self.grey_out_board()
+        self.highlight_check()
+        if not self.show_game_over_screen:
+            return
         self.parent_root = self.parent.winfo_toplevel()
         game_over_root = tk.Toplevel()
         game_over_root.resizable(0, 0)
@@ -1090,7 +1103,8 @@ if __name__ == '__main__':
         square_sheet='assets/chess/squares.png',
         sound_channel=chess_sound,
         flip_after_move=False,
-        allow_play_again=True
+        allow_play_again=True,
+        show_game_over_screen=True
     )
     chess_frame.grid(row=0, column=0)
     root.mainloop()

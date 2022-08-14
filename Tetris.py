@@ -300,7 +300,8 @@ class Tetris:
                  move_channel,
                  line_channel,
                  start_menu,
-                 allow_play_again
+                 allow_play_again,
+                 show_game_over_screen
         ):
         self.parent = parent
         self.mirror_ui = mirror_ui
@@ -315,6 +316,7 @@ class Tetris:
         self.line_channel = line_channel
         self.start_menu = start_menu
         self.allow_play_again = allow_play_again
+        self.show_game_over_screen = show_game_over_screen
         self.parent_root = self.parent.winfo_toplevel()
         self.game_frame = tk.Frame(self.parent)
         self.ui_frame = tk.Frame(self.parent)
@@ -1343,7 +1345,8 @@ class Tetris:
         self.move_channel.stop()
         self.line_channel.stop()
         self.line_channel.play(Sounds.GAME_OVER)
-
+        if not self.show_game_over_screen:
+            return
         game_over_root = tk.Toplevel()
         game_over_root.resizable(0, 0)
         game_over_root.wm_attributes('-type', 'splash')
@@ -1459,7 +1462,8 @@ if __name__ == '__main__':
         move_channel=tetris_move,
         line_channel=tetris_line,
         start_menu=True,
-        allow_play_again=True
+        allow_play_again=True,
+        show_game_over_screen=True
     )
     tetris_frame.grid(row=0, column=0)
     root.mainloop()
