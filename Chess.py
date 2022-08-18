@@ -422,6 +422,7 @@ class Chess:
         Rook: 'R',
         Pawn: 'P'
     }
+    UI_FONT_SIZE = 20
 
     def __init__(self,
                  parent,
@@ -680,7 +681,7 @@ class Chess:
         max_width = 0
         for i in range(3):
             text, symbol = text_index[i]
-            option = self._make_text_label(menu_frame, text, 30, i % 2 != 0, symbol=symbol)
+            option = self._make_text_label(menu_frame, text, Chess.UI_FONT_SIZE, i % 2 != 0, symbol=symbol)
             max_width = max(max_width, option.winfo_reqwidth())
             option.config(
                 highlightbackground='white',
@@ -944,8 +945,8 @@ class Chess:
             highlightthickness=Chess.BORDER_WIDTH,
             highlightbackground=border_colour
         )
-        game_over_text = self._make_text_label(game_over_frame, text, 20)
-        play_again_text = self._make_text_label(game_over_frame, 'Play Again?', 18)
+        game_over_text = self._make_text_label(game_over_frame, text, Chess.UI_FONT_SIZE)
+        play_again_text = self._make_text_label(game_over_frame, 'Play Again?', Chess.UI_FONT_SIZE)
         play_again_text_height = int(self.parent_root.call(play_again_text.cget('image'), 'cget', '-height'))
         play_again_text_width = int(self.parent_root.call(play_again_text.cget('image'), 'cget', '-width'))
         play_again_button = tk.Button(

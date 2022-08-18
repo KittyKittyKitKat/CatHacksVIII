@@ -1230,7 +1230,7 @@ class Tetris:
             highlightthickness=Tetris.BORDER_WIDTH,
             highlightbackground='white'
         )
-        ready_text = self._make_text_label(None, 'Ready?', 22)
+        ready_text = self._make_text_label(None, 'Ready?', Tetris.UI_FONT_SIZE)
         ready_text_height = int(self.parent_root.call(ready_text.cget('image'), 'cget', '-height'))
         ready_text_width = int(self.parent_root.call(ready_text.cget('image'), 'cget', '-width'))
         ready_button = tk.Button(
@@ -1243,7 +1243,7 @@ class Tetris:
             highlightthickness=Tetris.BORDER_WIDTH,
             highlightbackground='white'
         )
-        countdown = self._make_text_label(start_up_frame, '', 22)
+        countdown = self._make_text_label(start_up_frame, '', Tetris.UI_FONT_SIZE)
         countdown.config(height=ready_button.winfo_reqheight(), width=ready_button.winfo_reqwidth())
         countdowns = ['3', '2', '1', 'GO!']
 
@@ -1256,7 +1256,7 @@ class Tetris:
 
         def display_countdown():
             text = countdowns.pop(0)
-            countdown.config(image=self._make_text_label(None, text, 22).cget('image'))
+            countdown.config(image=self._make_text_label(None, text, Tetris.UI_FONT_SIZE).cget('image'))
             if text == 'GO!':
                 self.move_channel.play(Sounds.GO)
             else:
@@ -1357,8 +1357,8 @@ class Tetris:
             highlightthickness=Tetris.BORDER_WIDTH,
             highlightbackground='white'
         )
-        game_over_text = self._make_text_label(game_over_frame, 'Game Over', 30)
-        play_again_text = self._make_text_label(game_over_frame, 'Play Again?', 22)
+        game_over_text = self._make_text_label(game_over_frame, 'Game Over', Tetris.UI_FONT_SIZE)
+        play_again_text = self._make_text_label(game_over_frame, 'Play Again?', Tetris.UI_FONT_SIZE)
         play_again_text_height = int(self.parent_root.call(play_again_text.cget('image'), 'cget', '-height'))
         play_again_text_width = int(self.parent_root.call(play_again_text.cget('image'), 'cget', '-width'))
         play_again_button = tk.Button(
