@@ -742,8 +742,8 @@ class Chess:
             over = self.is_game_over()
             if not over:
                 self.flip_board()
-                if self.move_listener_flag is not None:
-                    self.move_listener_flag.set(self.current_player.name)
+            if self.move_listener_flag is not None:
+                self.move_listener_flag.set(self.current_player.name)
 
     def move_piece(self, piece, new_rank, new_file):
         current_square = self.squares[piece.rank][piece.file]
