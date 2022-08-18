@@ -381,7 +381,7 @@ class Tetris:
         self.move_channel.set_volume(0.4)
         self.line_channel.set_volume(0.3)
         if self.start_menu:
-            self.start_up()
+            self.parent.after(1, self.start_up)
 
     def _config_widgets(self):
         self.parent.config(
@@ -1219,6 +1219,8 @@ class Tetris:
             self.music_button.config(image=self.texts['\U0001D194'])
 
     def start_up(self):
+        if not self.parent.winfo_ismapped():
+            self.parent.wait_visibility()
         start_up_root = tk.Toplevel()
         start_up_root.resizable(0, 0)
         start_up_root.wm_attributes('-type', 'splash')
