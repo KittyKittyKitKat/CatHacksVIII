@@ -666,9 +666,9 @@ class Tetris:
     def _make_text_label(self, parent, text, font_size, symbol=False):
         if text not in self.texts:
             if not symbol:
-                fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+                fnt = ImageFont.truetype('assets/fonts/Rubik-Medium.ttf', font_size)
             else:
-                fnt = ImageFont.truetype('assets/Symbola.ttf', font_size)
+                fnt = ImageFont.truetype('assets/fonts/Symbola.ttf', font_size)
             size = fnt.getbbox(text)
             text_img = Image.new('RGBA', (size[2], size[3]), (0, 0, 0, 0))
             d = ImageDraw.Draw(text_img, 'RGBA')

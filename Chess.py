@@ -275,7 +275,7 @@ class Rook(Piece):
 
 
 class Knight(Piece):
-    def check_move(self, new_rank,new_file):
+    def check_move(self, new_rank, new_file):
         if self.in_future:
             test_against_rank, test_against_file = self.stored_pos
         else:
@@ -356,7 +356,7 @@ class Square(tk.Label):
         super().__init__(parent, width=Square.SQUARE_SIZE, height=Square.SQUARE_SIZE, bd=0, image=self.tk_image)
 
     def add_text(self, rank, file, chess_board):
-        fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', 13)
+        fnt = ImageFont.truetype('assets/fonts/Rubik-Medium.ttf', 13)
         new_bg = self.background_image.copy()
         d = ImageDraw.Draw(new_bg)
 
@@ -482,9 +482,9 @@ class Chess:
     def _make_text_label(self, parent, text, font_size, flip_colours=False, symbol=False):
         if text not in self.texts:
             if not symbol:
-                fnt = ImageFont.truetype('assets/Rubik-Medium.ttf', font_size)
+                fnt = ImageFont.truetype('assets/fonts/Rubik-Medium.ttf', font_size)
             else:
-                fnt = ImageFont.truetype('assets/Symbola.ttf', font_size)
+                fnt = ImageFont.truetype('assets/fonts/Symbola.ttf', font_size)
             size = fnt.getbbox(text)
             bg, fg = (self.light_colour, self.dark_colour) if not flip_colours else (self.dark_colour, self.light_colour)
             text_img = Image.new('RGBA', (size[2], size[3]), bg)
