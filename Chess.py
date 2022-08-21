@@ -193,7 +193,7 @@ class King(Piece):
                 if piece.check_move(test_rank, test_file, check_check=False):
                     in_check = True
             elif isinstance(piece, Pawn):
-                if piece.check_move(test_rank, test_file, check_check=True):
+                if piece.check_move(test_rank, test_file):
                     if piece.file != test_file:
                         in_check = True
             elif piece.check_move(test_rank, test_file):
@@ -301,7 +301,7 @@ class Pawn(Piece):
         super(). __init__(parent, team, image, rank, file, chess_board)
         self.has_just_moved_double = False
 
-    def check_move(self, new_rank, new_file, check_check=False):
+    def check_move(self, new_rank, new_file):
         if self.in_future:
             test_against_rank, test_against_file = self.stored_pos
         else:
@@ -330,10 +330,10 @@ class Pawn(Piece):
             test_rank = test_against_rank + dr
             test_file = test_against_file + df
             if test_rank == new_rank and test_file == new_file:
-                if (occupying_piece is not None and occupying_piece.team is not self.team) or check_check:
-                    return True
-                elif self.move_results_in_check(test_rank, test_file):
+                if self.move_results_in_check(test_rank, test_file):
                     return False
+                elif occupying_piece is not None and occupying_piece.team is not self.team:
+                    return True
                 elif occupying_piece is None:
                     en_passant_pawn = self.chess_board.get_piece_at_pos(test_against_rank, test_file)
                     if isinstance(en_passant_pawn, Pawn) and en_passant_pawn.has_just_moved_double and en_passant_pawn.team is not self.team:
